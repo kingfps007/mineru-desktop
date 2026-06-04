@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>MinerU Desktop v3.2.1</title>
+<title>MinerU Desktop v3.2.2</title>
 <style>
 :root {
   --bg: #ffffff; --surface: #f5f7fa; --overlay: #e8ecf1;
@@ -83,12 +83,14 @@ body {
   font-size: 13px; font-weight: 600; transition: var(--transition);
   background: var(--white); color: var(--fg);
 }
-.btn:hover { background: var(--overlay); }
+.btn:hover:not(:disabled) { background: var(--overlay); }
 .btn.primary { background: var(--accent); color: #fff; border-color: var(--accent); }
-.btn.primary:hover { background: #1d4ed8; }
+.btn.primary:hover:not(:disabled) { background: #1d4ed8; }
 .btn.danger { background: var(--red); color: #fff; border-color: var(--red); }
-.btn.danger:hover { background: #b91c1c; }
+.btn.danger:hover:not(:disabled) { background: #b91c1c; }
 .btn.success { background: var(--green); color: #fff; border-color: var(--green); }
+.btn.cloud { background: var(--purple); color: #fff; border-color: var(--purple); }
+.btn.cloud:hover:not(:disabled) { background: #6d28d9; }
 .btn:disabled { opacity: 0.4; cursor: not-allowed; }
 
 input, select, textarea {
@@ -97,6 +99,7 @@ input, select, textarea {
   transition: var(--transition); outline: none;
 }
 input:focus, select:focus, textarea:focus { border-color: var(--accent); box-shadow: 0 0 0 2px rgba(37,99,235,0.15); }
+input:disabled, select:disabled { background: var(--surface); cursor: not-allowed; opacity: 0.6; }
 input::placeholder { color: var(--dim); }
 select { cursor: pointer; }
 
@@ -136,9 +139,7 @@ tr:hover td { background: var(--surface); }
 .status-badge.done { background: #dcfce7; color: #166534; }
 .status-badge.pending { background: #fef3c7; color: #92400e; }
 .status-badge.nopdf { background: #fee2e2; color: #991b1b; }
-.status-badge.ok { background: #dcfce7; color: #166534; }
-.status-badge.warn { background: #fef3c7; color: #92400e; }
-.status-badge.err { background: #fee2e2; color: #991b1b; }
+.status-badge.cloud { background: #ede9fe; color: #5b21b6; }
 
 .gpu-temp { font-size: 12px; font-weight: 700; }
 .gpu-temp.normal { color: var(--green); }
@@ -175,17 +176,27 @@ tr:hover td { background: var(--surface); }
 .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
 .grid-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
 .check-row { display: flex; align-items: center; gap: 10px; padding: 8px 0; font-size: 13px; }
-.check-icon { font-size: 16px; width: 20px; text-align: center; }
+.check-icon { font-size: 16px; width: 20px; text-align: center; flex-shrink: 0; }
 .check-icon.ok { color: var(--green); }
 .check-icon.warn { color: var(--yellow); }
 .check-icon.err { color: var(--red); }
+.check-text { flex: 1; word-break: break-all; }
+
+.parse-mode-tabs { display: flex; gap: 4px; margin-bottom: 12px; border-bottom: 1px solid var(--border); }
+.parse-mode-tab {
+  padding: 8px 16px; background: none; border: none; cursor: pointer; font-size: 13px;
+  color: var(--dim); border-bottom: 2px solid transparent; transition: var(--transition);
+}
+.parse-mode-tab.active { color: var(--accent); border-bottom-color: var(--accent); font-weight: 700; }
+.parse-mode-tab:hover:not(.active) { color: var(--fg); }
+.parse-mode-tab.cloud.active { color: var(--purple); border-bottom-color: var(--purple); }
 </style>
 </head>
 <body>
 
 <div class="titlebar">
   <div class="titlebar-left">
-    <span class="titlebar-logo">⬡ MinerU Desktop<span> v3.2.1</span></span>
+    <span class="titlebar-logo">⬡ MinerU Desktop<span> v3.2.2</span></span>
   </div>
   <div class="titlebar-btns">
     <button class="titlebar-btn" onclick="electronAPI.minimize()">─</button>
@@ -199,13 +210,13 @@ tr:hover td { background: var(--surface); }
     <button class="nav-item active" data-page="dashboard" id="nav-dashboard">
       <span class="icon">📊</span> 仪表盘
     </button>
-    <button class="nav-item" data-page="parse" id="nav-parse" disabled>
+    <button class="nav-item" data-page="parse" id="nav-parse">
       <span class="icon">📄</span> 批量解析
     </button>
-    <button class="nav-item" data-page="word" id="nav-word" disabled>
+    <button class="nav-item" data-page="word" id="nav-word">
       <span class="icon">📝</span> 生成 Word
     </button>
-    <button class="nav-item" data-page="settings" id="nav-settings" disabled>
+    <button class="nav-item" data-page="settings" id="nav-settings">
       <span class="icon">🔧</span> 设置
     </button>
     <div style="flex:1"></div>
@@ -216,33 +227,48 @@ tr:hover td { background: var(--surface); }
 
   <div class="main">
     <div class="content" id="content">
-      <!-- 仪表盘页面：环境检查 + 系统监控 -->
+      <!-- 仪表盘：所有内容都直接展示，不跳转 -->
       <div class="page" id="pg-dashboard">
-        <!-- 系统能力评估 -->
+        <!-- 1. 系统能力评估 -->
         <div class="card" id="capabilityCard" style="border-left:3px solid var(--accent)">
           <div class="card-title" id="capabilityTitle">🖥 系统能力评估</div>
           <div class="card-subtitle" id="capabilityText">检测中...</div>
         </div>
 
-        <!-- 环境检查总览（始终显示，方便用户看到缺什么） -->
+        <!-- 2. 环境检查总览 -->
         <div class="card">
           <div class="card-title">🔍 环境检查</div>
-          <div class="card-subtitle">系统组件完整性检查，决定后续功能是否可用</div>
+          <div class="card-subtitle">检查 Miniconda / MinerU / 模型是否就绪</div>
           <div id="envCheckList">
-            <div class="check-row"><span class="check-icon">⏳</span><span>Miniconda: 检测中...</span></div>
-            <div class="check-row"><span class="check-icon">⏳</span><span>MinerU 环境: 检测中...</span></div>
-            <div class="check-row"><span class="check-icon">⏳</span><span>Pipeline 模型: 检测中...</span></div>
-            <div class="check-row"><span class="check-icon">⏳</span><span>VLM 模型: 检测中...</span></div>
-            <div class="check-row"><span class="check-icon">⏳</span><span>GPU 加速: 检测中...</span></div>
+            <div class="check-row"><span class="check-icon">⏳</span><span class="check-text">Miniconda: 检测中...</span></div>
+            <div class="check-row"><span class="check-icon">⏳</span><span class="check-text">MinerU 环境: 检测中...</span></div>
+            <div class="check-row"><span class="check-icon">⏳</span><span class="check-text">Pipeline 模型: 检测中...</span></div>
+            <div class="check-row"><span class="check-icon">⏳</span><span class="check-text">VLM 模型: 检测中...</span></div>
+            <div class="check-row"><span class="check-icon">⏳</span><span class="check-text">GPU 加速: 检测中...</span></div>
           </div>
-          <div class="flex-row gap-12 mt-12" id="envActions">
-            <button class="btn primary" id="btnOpenSetup" onclick="openSetup()">⚙ 进入安装向导</button>
+          <div class="flex-row gap-12 mt-12">
             <button class="btn" onclick="recheckEnv()">🔄 重新检测</button>
-            <button class="btn" onclick="cleanupMemory()" title="清理 CPU/GPU 显存">🧹 清理内存</button>
+            <button class="btn" onclick="cleanupMemory()">🧹 清理内存</button>
+            <button class="btn" onclick="switchTab('setup')">⚙ 展开安装向导</button>
           </div>
         </div>
 
-        <!-- GPU & 模型详细状态 -->
+        <!-- 3. 配置向导（默认折叠，点击展开） -->
+        <div class="card" id="setupCard">
+          <div class="card-title" style="cursor:pointer;user-select:none" onclick="toggleSetupCard()">
+            <span id="setupArrow">▶</span> ⚙ 安装向导
+            <span class="text-dim" style="font-weight:normal;margin-left:auto">点击展开/折叠</span>
+          </div>
+          <div id="setupContent" class="hidden">
+            <div class="card-subtitle">每一步都需手动确认，已完成的步骤自动跳过</div>
+            <div class="step-list" id="setupSteps"></div>
+            <div class="progress-bar mt-12"><div class="progress-fill" id="setupProgressBar"></div></div>
+            <div class="text-dim mt-8" id="setupProgressText"></div>
+            <div class="log-panel mt-12" id="logPanelS"></div>
+          </div>
+        </div>
+
+        <!-- 4. GPU/模型状态 -->
         <div class="grid-2">
           <div class="card">
             <div class="card-title">🖥 GPU 状态</div>
@@ -254,14 +280,22 @@ tr:hover td { background: var(--surface); }
           </div>
         </div>
 
-        <!-- 安装向导日志（仅在 setup 页面用，仪表盘不重复显示） -->
+        <!-- 5. 快捷入口 -->
+        <div class="card">
+          <div class="card-title">🚀 快捷入口</div>
+          <div class="flex-row gap-12">
+            <button class="btn primary" onclick="switchTab('parse')">📄 开始批量解析</button>
+            <button class="btn" onclick="switchTab('word')">📝 生成 Word</button>
+            <button class="btn" onclick="switchTab('settings')">🔧 设置</button>
+          </div>
+        </div>
       </div>
 
       <!-- 批量解析页面 -->
       <div class="page hidden" id="pg-parse">
         <div class="card">
           <div class="card-title">📄 批量解析</div>
-          <div class="card-subtitle">从 Zotero BetterBibTeX 导出 JSON，自动解析所有 PDF</div>
+          <div class="card-subtitle">从 Zotero BetterBibTeX 导出 JSON 或直接选文件，调用 MinerU 解析为 Markdown + 图片</div>
           <div class="flex-row gap-12 mb-12">
             <button class="btn primary" onclick="importZoteroJSON()">📥 导入 Zotero JSON</button>
             <button class="btn" onclick="importDirectFiles()">📂 直接选文件</button>
@@ -270,20 +304,30 @@ tr:hover td { background: var(--surface); }
           <div class="mt-12" id="refTableContainer" style="max-height:400px;overflow-y:auto"></div>
           <div id="directFileTable" style="display:none"></div>
         </div>
-        <div class="card" id="parseControls" style="display:none">
+        <div class="card">
           <div class="card-title">⚙ 解析设置</div>
+          <div class="parse-mode-tabs">
+            <button class="parse-mode-tab active" data-mode="local" onclick="switchParseMode('local')">💻 本地解析</button>
+            <button class="parse-mode-tab cloud" data-mode="cloud_api" onclick="switchParseMode('cloud_api')">☁ 云端 API</button>
+            <button class="parse-mode-tab cloud" data-mode="cloud_model" onclick="switchParseMode('cloud_model')">☁ 云端 VLM 模型</button>
+          </div>
           <div class="input-row">
             <label>输出目录</label>
             <input id="outputDir" placeholder="选择输出目录">
             <button class="btn" onclick="pickOutputDir()">浏览</button>
           </div>
-          <div class="input-row">
-            <label>后端引擎</label>
+          <div id="localBackendRow" class="input-row">
+            <label>本地后端</label>
             <select id="backend">
               <option value="vlm-auto-engine">VLM Auto (推荐)</option>
               <option value="pipeline">Pipeline (稳定)</option>
               <option value="hybrid-auto-engine">Hybrid Auto</option>
             </select>
+          </div>
+          <div id="cloudTokenRow" class="input-row hidden">
+            <label>API Token</label>
+            <input id="parseApiToken" type="password" placeholder="在设置中配置可自动填充">
+            <button class="btn" onclick="switchTab('settings')">去设置</button>
           </div>
           <div class="input-row">
             <label>语言</label>
@@ -294,7 +338,7 @@ tr:hover td { background: var(--surface); }
           </div>
           <div class="flex-row mt-12">
             <button id="btnSelectAll" class="btn" onclick="toggleSelectAll()">☑ 全选</button>
-            <button id="btnParse" class="btn primary" onclick="startParse()">▶ 开始解析</button>
+            <button id="btnParse" class="btn primary" onclick="startParse()" disabled>▶ 开始解析</button>
             <button id="btnCancel" class="btn danger" onclick="cancelParse()" disabled>⏹ 取消</button>
           </div>
           <div class="mt-12">
@@ -328,7 +372,7 @@ tr:hover td { background: var(--surface); }
             <input id="docxOutputDir" placeholder="默认 = MD 文件所在目录">
             <button class="btn" onclick="pickDocxOutputDir()">浏览</button>
           </div>
-          <button class="btn primary mt-12" onclick="generateDocx()">▶ 生成 Word 文档</button>
+          <button id="btnGenerateDocx" class="btn primary mt-12" onclick="generateDocx()" disabled>▶ 生成 Word 文档</button>
           <div class="mt-12 text-dim" id="docxProgressText"></div>
         </div>
         <div class="card">
@@ -337,22 +381,7 @@ tr:hover td { background: var(--surface); }
         </div>
       </div>
 
-      <!-- 安装向导页面 -->
-      <div class="page hidden" id="pg-setup">
-        <div class="card">
-          <div class="card-title">⚙ 安装向导</div>
-          <div class="card-subtitle">每一步都需手动确认，已完成的步骤自动跳过</div>
-          <div class="step-list" id="setupSteps"></div>
-          <div class="progress-bar mt-12"><div class="progress-fill" id="setupProgressBar"></div></div>
-          <div class="text-dim mt-8" id="setupProgressText"></div>
-        </div>
-        <div class="card">
-          <div class="card-title">📋 安装日志</div>
-          <div class="log-panel" id="logPanelS"></div>
-        </div>
-      </div>
-
-      <!-- 设置页面（独立出来） -->
+      <!-- 设置页面 -->
       <div class="page hidden" id="pg-settings">
         <div class="card">
           <div class="card-title">🔧 系统设置</div>
@@ -382,12 +411,11 @@ tr:hover td { background: var(--surface); }
           </div>
           <div class="flex-row gap-12 mt-12">
             <button class="btn primary" onclick="saveSettings()">💾 保存设置</button>
-            <button class="btn" onclick="cleanupMemory()" title="清理 CPU/GPU 显存">🧹 清理内存</button>
           </div>
         </div>
         <div class="card">
           <div class="card-title">☁ MinerU Cloud API</div>
-          <div class="card-subtitle">配置官方 Token 后可使用远程精准解析 API</div>
+          <div class="card-subtitle">配置官方 Token 后可使用远程解析</div>
           <div class="input-row">
             <label>API Token</label>
             <input id="cfgApiToken" type="password" placeholder="sk-xxxxxxxx">
@@ -401,12 +429,13 @@ tr:hover td { background: var(--surface); }
       <!-- 关于页面 -->
       <div class="page hidden" id="pg-about">
         <div class="card">
-          <div class="card-title">ℹ 关于 MinerU Desktop v3.2.1</div>
+          <div class="card-title">ℹ 关于 MinerU Desktop v3.2.2</div>
           <div class="card-subtitle" style="line-height:1.8">
             MinerU Desktop 是一款基于 MinerU 的 PDF 解析工具，支持批量解析和 Word 文档生成。
             <br><br><b>版本更新日志</b>:
-            <br>• <b>v3.2.1</b> (2026-06-04) - 修复：清理内存改用 taskkill (Windows 兼容)、环境检查综合判断 (conda+mineru+模型)、设置移到独立页面
-            <br>• <b>v3.2.0</b> (2026-06-04) - UI 重构：集成仪表盘与安装向导
+            <br>• <b>v3.2.2</b> (2026-06-04) - 修复 conda 显示 bug、安装向导直接集成在主页、解析页支持云端 API/云端 VLM 模型、移除复杂显隐改为前置条件禁用
+            <br>• <b>v3.2.1</b> - 修复清理内存卡死、环境检查综合判断
+            <br>• <b>v3.2.0</b> - UI 重构：集成仪表盘与安装向导
             <br>• <b>v3.1.4</b> - 内存清理按钮、取消后自动恢复
             <br>• <b>v3.1.3</b> - 添加直接文件解析端点
             <br>• <b>v3.1.2</b> - 批量解析优化、GPU温度监控
@@ -423,7 +452,7 @@ tr:hover td { background: var(--surface); }
         <span id="modelStatus">模型: 检测中...</span>
         <span id="statusProgress" style="display:none;flex:1;max-width:200px;height:6px;background:var(--overlay);border-radius:3px;overflow:hidden"><div id="statusProgressFill" style="height:100%;background:var(--accent);width:0%;transition:width 0.3s"></div></span>
       </div>
-      <span id="versionInfo">MinerU Desktop v3.2.1</span>
+      <span id="versionInfo">MinerU Desktop v3.2.2</span>
     </div>
   </div>
 </div>
@@ -453,8 +482,11 @@ let currentPage = 'dashboard';
 let references = [];
 let _pagesInited = {};
 let _parseMode = 'zotero';
-let _capabilityLevel = 'basic';
 let _envReady = false;
+let _capabilityLevel = 'basic';
+let _localFiles = [];       // 直接选文件模式
+let _selectedCitekeys = new Set();
+let _parseMethod = 'local'; // local / cloud_api / cloud_model
 
 function initWS() {
   try { ws = new WebSocket(`ws://127.0.0.1:${API.base.split(':').pop()}/ws/logs`);
@@ -475,6 +507,7 @@ function addLog(msg) {
     if (msg.startsWith('✓')) div.style.color = '#16a34a';
     else if (msg.startsWith('✗') || msg.startsWith('⚠')) div.style.color = '#dc2626';
     else if (msg.startsWith('▶')) div.style.color = '#2563eb';
+    else if (msg.startsWith('☁')) div.style.color = '#7c3aed';
     panel.appendChild(div);
     panel.scrollTop = panel.scrollHeight;
     while (panel.children.length > 500) panel.firstChild.remove();
@@ -525,34 +558,32 @@ async function refreshStatus() {
 }
 
 // ═══════════ PAGE NAVIGATION ═══════════
-function navTo(page) {
-  if (page !== 'dashboard' && page !== 'about' && page !== 'setup' && !_envReady) {
-    updateStatus('请先完成环境安装', 'warn');
-    return;
-  }
-  
+function switchTab(page) {
   document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
   const nav = document.getElementById('nav-' + page);
   if (nav) nav.classList.add('active');
-
   document.querySelectorAll('.page').forEach(p => p.classList.add('hidden'));
   const pg = document.getElementById('pg-' + page);
   if (pg) pg.classList.remove('hidden');
-
   currentPage = page;
   if (!_pagesInited[page]) { _pagesInited[page] = true; initPage(page); }
+  updateParseBtn();
+  updateDocxBtn();
 }
+
+function navTo(page) { switchTab(page); }
 
 function escHtml(s) { return (s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
 
 function initPage(page) {
   if (page === 'dashboard') initDashboard();
-  else if (page === 'setup') initSetup();
   else if (page === 'parse' || page === 'word' || page === 'settings') loadSettings();
 }
 
+// ═══════════ DASHBOARD ═══════════
 async function initDashboard() {
   await checkCapability();
+  await loadSetupSteps();
   setTimeout(async () => {
     try {
       const deep = await API.get('/api/gpu/deep');
@@ -564,16 +595,14 @@ async function initDashboard() {
 }
 
 async function checkCapability() {
-  let cap;
   try {
-    cap = await API.get('/api/capability');
+    const cap = await API.get('/api/capability');
     _capabilityLevel = cap.level;
     
     let clr = 'var(--green)';
     if (cap.level === 'basic') clr = 'var(--red)';
     else if (cap.level === 'limited') clr = 'var(--yellow)';
     else if (cap.level === 'capable') clr = 'var(--accent)';
-    else if (cap.level === 'full') clr = 'var(--green)';
     
     document.getElementById('capabilityCard').style.borderLeftColor = clr;
     document.getElementById('capabilityText').textContent = cap.recommendation;
@@ -588,19 +617,8 @@ async function checkCapability() {
     
     // 综合判断：conda + mineru + 模型齐全 才算就绪
     _envReady = !!cap.env_ready;
-    
-    // 控制导航项可用性
-    document.getElementById('nav-parse').disabled = !_envReady;
-    document.getElementById('nav-word').disabled = !_envReady;
-    document.getElementById('nav-settings').disabled = !_envReady;
-    
-    if (_envReady) {
-      updateStatus('就绪', 'ok');
-      document.getElementById('btnOpenSetup').textContent = '⚙ 重新检查安装';
-    } else {
-      updateStatus('请完成环境安装', 'warn');
-      document.getElementById('btnOpenSetup').textContent = '⚙ 进入安装向导';
-    }
+    if (_envReady) updateStatus('就绪', 'ok');
+    else updateStatus('请完成环境安装', 'warn');
   } catch(e) {
     document.getElementById('capabilityText').textContent = '无法评估系统能力';
     updateStatus('后端未连接', 'err');
@@ -621,18 +639,25 @@ function updateEnvCheckList(conda, mineru, models, gpu) {
   const vramGB = gpu ? (gpu.vram_mb / 1024) : 0;
   const hasVram = vramGB >= 4;
   
+  // ✅ 修复：conda 是字符串或 None，直接判断 truthy
+  const condaStr = typeof conda === 'string' ? conda : (conda && conda.path) || null;
+  const condaOk = !!condaStr;
+  const mineruOk = !!(mineru && mineru.ok);
+  const pipelineOk = !!(models && models.pipeline);
+  const vlmOk = !!(models && models.vlm);
+  
   const items = [
-    { ok: conda && conda.found, label: 'Miniconda', status: conda ? (conda.found ? conda.path : '未找到') : '未找到' },
-    { ok: mineru && mineru.ok, label: 'MinerU 环境', status: mineru ? (mineru.ok ? mineru.root : '未安装') : '未安装' },
-    { ok: models && models.pipeline, label: 'Pipeline 模型', status: models ? (models.pipeline ? '✓ 已安装' : '✗ 未安装') : '未检测' },
-    { ok: models && models.vlm, label: 'VLM 模型', status: models ? (models.vlm ? '✓ 已安装' : '✗ 未安装') : '未检测' },
+    { ok: condaOk, label: 'Miniconda', status: condaOk ? condaStr : '未安装' },
+    { ok: mineruOk, label: 'MinerU 环境', status: mineruOk ? (mineru.root || '已安装') : '未安装' },
+    { ok: pipelineOk, label: 'Pipeline 模型', status: pipelineOk ? '✓ 已安装' : '✗ 未安装' },
+    { ok: vlmOk, label: 'VLM 模型', status: vlmOk ? '✓ 已安装' : '✗ 未安装' },
     { ok: hasNvidia && hasVram, label: 'GPU 加速', status: hasNvidia ? (hasVram ? `${gpu.gpu_name} (${vramGB.toFixed(1)}GB)` : `${gpu.gpu_name} 显存不足`) : '未检测到 NVIDIA 显卡' },
   ];
   
   list.innerHTML = items.map(item => {
     const icon = item.ok ? '✓' : '✗';
     const cls = item.ok ? 'ok' : 'err';
-    return `<div class="check-row"><span class="check-icon ${cls}">${icon}</span><span><b>${item.label}</b>: ${item.status}</span></div>`;
+    return `<div class="check-row"><span class="check-icon ${cls}">${icon}</span><span class="check-text"><b>${item.label}</b>: ${escHtml(item.status)}</span></div>`;
   }).join('');
 }
 
@@ -654,8 +679,46 @@ function recheckEnv() {
   checkCapability();
 }
 
-function openSetup() {
-  navTo('setup');
+function toggleSetupCard() {
+  const content = document.getElementById('setupContent');
+  const arrow = document.getElementById('setupArrow');
+  if (content.classList.contains('hidden')) {
+    content.classList.remove('hidden');
+    arrow.textContent = '▼';
+    loadSetupSteps();
+  } else {
+    content.classList.add('hidden');
+    arrow.textContent = '▶';
+  }
+}
+
+async function loadSetupSteps() {
+  try {
+    const steps = await API.get('/api/setup/steps');
+    let html = '';
+    steps.forEach((step, i) => {
+      const isDone = step.status === 'done';
+      const isSkip = step.status === 'skipped';
+      html += '<div class="step-item' + (isDone ? ' done' : '') + '" id="step-' + step.id + '"><div class="step-num">' + (isDone ? '✓' : (isSkip ? '⊘' : i + 1)) + '</div><div class="step-info" style="flex:1"><div class="step-name">' + escHtml(step.name) + (isSkip ? ' <span class="text-dim">(已跳过)</span>' : '') + '</div><div class="step-desc" style="margin-top:4px;line-height:1.5">' + escHtml(step.description) + (step.skip_reason ? '<br><span style="color:var(--dim)">'+escHtml(step.skip_reason)+'</span>' : '') + '</div><div style="display:flex;gap:16px;margin-top:6px;font-size:11px;color:var(--dim)"><span>📁 ' + escHtml(step.location) + '</span><span>💾 ' + escHtml(step.size) + '</span></div></div><button class="btn ' + (isDone ? 'success' : 'primary') + '" id="btn-' + step.id + '" onclick="executeStep(\'' + step.id + '\')" ' + (isDone || isSkip ? 'disabled' : '') + '>' + (isDone ? '✓ 已完成' : (isSkip ? '已跳过' : escHtml(step.action_text))) + '</button></div>';
+    });
+    document.getElementById('setupSteps').innerHTML = html;
+    const doneCount = steps.filter(s => s.status === 'done').length;
+    const total = steps.length;
+    const pct = total > 0 ? Math.round(doneCount / total * 100) : 0;
+    document.getElementById('setupProgressBar').style.width = pct + '%';
+    document.getElementById('setupProgressText').textContent = `进度: ${doneCount}/${total} (${pct}%)`;
+  } catch(e) { console.error(e); }
+}
+
+async function executeStep(stepId) {
+  const btn = document.getElementById('btn-' + stepId);
+  if (btn) { btn.disabled = true; btn.textContent = '执行中...'; }
+  document.getElementById('setupProgressText').textContent = '执行中...';
+  try { await API.post('/api/setup/step/' + stepId); } catch(e) { addLog('执行失败: ' + e.message); }
+  setTimeout(() => {
+    loadSetupSteps();
+    checkCapability();
+  }, 2000);
 }
 
 // ═══════════ WORKFLOW A (批量解析) ═══════════
@@ -668,11 +731,12 @@ async function importZoteroJSON() {
     const data = await API.post('/api/zotero/import', { file_path: filePath });
     references = data.references;
     _parseMode = 'zotero';
+    _selectedCitekeys = new Set();
     document.getElementById('directFileTable').style.display = 'none';
     document.getElementById('refTableContainer').style.display = 'block';
     document.getElementById('importStatus').textContent = '已导入 ' + references.length + ' 条文献';
     renderRefTable();
-    document.getElementById('parseControls').style.display = 'block';
+    updateParseBtn();
   } catch(e) { addLog('导入失败: ' + e.message); }
 }
 
@@ -685,12 +749,13 @@ async function importDirectFiles() {
     if (result.canceled || !result.filePaths.length) return;
     addLog('直接导入: ' + result.filePaths.length + ' 个文件');
     const data = await API.post('/api/files/import', { file_paths: result.filePaths });
+    _localFiles = data.files;
     _parseMode = 'direct';
     document.getElementById('refTableContainer').style.display = 'none';
     document.getElementById('directFileTable').style.display = 'block';
     renderDirectTable(data.files);
     document.getElementById('importStatus').textContent = '已导入 ' + data.count + ' 个文件 (' + data.files.filter(f => f.valid).length + ' 个有效)';
-    document.getElementById('parseControls').style.display = 'block';
+    updateParseBtn();
   } catch(e) { addLog('导入失败: ' + e.message); }
 }
 
@@ -706,72 +771,115 @@ function renderDirectTable(files) {
   container.innerHTML = html;
 }
 
-function toggleAllDirect(el) { document.querySelectorAll('.file-checkbox:not(:disabled)').forEach(cb => cb.checked = el.checked); }
+function toggleAllDirect(el) { document.querySelectorAll('.file-checkbox:not(:disabled)').forEach(cb => cb.checked = el.checked); updateParseBtn(); }
 
 function renderRefTable() {
   const container = document.getElementById('refTableContainer');
   const hasPDF = references.filter(r => r.pdf_exists).length;
   const parsed = references.filter(r => r.parsed).length;
   let html = '<div style="margin-bottom:8px;font-size:12px;color:var(--dim)">共 ' + references.length + ' 条 | 有PDF: ' + hasPDF + ' | 已解析: ' + parsed + ' | 待解析: ' + (hasPDF - parsed) + '</div>';
-  html += '<table><thead><tr><th class="checkbox-cell"><input type="checkbox" id="selectAll" onchange="toggleAll(this)"></th><th>CiteKey</th><th>标题</th><th>PDF 大小</th><th>状态</th></tr></thead><tbody>';
+  html += '<table><thead><tr><th class="checkbox-cell"><input type="checkbox" id="selectAll" onchange="toggleAllRefs(this)"></th><th>CiteKey</th><th>标题</th><th>PDF 大小</th><th>状态</th></tr></thead><tbody>';
   for (const ref of references) {
     const size = ref.pdf_exists ? Math.round(ref.pdf_size / 1024) + ' KB' : 'N/A';
     let badge = '<span class="status-badge pending">待解析</span>';
     if (ref.parsed) badge = '<span class="status-badge done">✓ 已完成</span>';
     else if (!ref.pdf_exists) badge = '<span class="status-badge nopdf">无 PDF</span>';
-    html += '<tr><td class="checkbox-cell"><input type="checkbox" class="ref-checkbox" data-citekey="' + escHtml(ref.citekey) + '" ' + (!ref.pdf_exists || ref.parsed ? '' : 'checked') + ' ' + (!ref.pdf_exists ? 'disabled' : '') + '></td><td style="font-family:Consolas,monospace;font-size:11px">' + escHtml(ref.citekey) + '</td><td>' + escHtml((ref.title || '').substring(0, 60)) + ((ref.title || '').length > 60 ? '...' : '') + '</td><td>' + size + '</td><td>' + badge + '</td></tr>';
+    html += '<tr><td class="checkbox-cell"><input type="checkbox" class="ref-checkbox" data-citekey="' + escHtml(ref.citekey) + '" onchange="updateParseBtn()" ' + (!ref.pdf_exists || ref.parsed ? '' : 'checked') + ' ' + (!ref.pdf_exists ? 'disabled' : '') + '></td><td style="font-family:Consolas,monospace;font-size:11px">' + escHtml(ref.citekey) + '</td><td>' + escHtml((ref.title || '').substring(0, 60)) + ((ref.title || '').length > 60 ? '...' : '') + '</td><td>' + size + '</td><td>' + badge + '</td></tr>';
   }
   html += '</tbody></table>';
   container.innerHTML = html;
 }
 
-function toggleAll(el) { document.querySelectorAll('.ref-checkbox:not(:disabled)').forEach(cb => cb.checked = el.checked); }
+function toggleAllRefs(el) { document.querySelectorAll('.ref-checkbox:not(:disabled)').forEach(cb => { cb.checked = el.checked; }); updateParseBtn(); }
 
 function toggleSelectAll() {
   if (_parseMode === 'direct') {
     const all = document.querySelectorAll('.file-checkbox:not(:disabled)');
     const anyChecked = Array.from(all).some(cb => cb.checked);
     all.forEach(cb => cb.checked = !anyChecked);
-    document.getElementById('selectAll').checked = !anyChecked;
+    const sa = document.getElementById('selectAll'); if (sa) sa.checked = !anyChecked;
   } else {
     const all = document.querySelectorAll('.ref-checkbox:not(:disabled)');
     const anyChecked = Array.from(all).some(cb => cb.checked);
     all.forEach(cb => cb.checked = !anyChecked);
-    document.getElementById('selectAll').checked = !anyChecked;
+    const sa = document.getElementById('selectAll'); if (sa) sa.checked = !anyChecked;
   }
+  updateParseBtn();
+}
+
+function switchParseMode(mode) {
+  _parseMethod = mode;
+  document.querySelectorAll('.parse-mode-tab').forEach(t => t.classList.remove('active'));
+  document.querySelector(`.parse-mode-tab[data-mode="${mode}"]`).classList.add('active');
+  document.getElementById('localBackendRow').classList.toggle('hidden', mode !== 'local');
+  document.getElementById('cloudTokenRow').classList.toggle('hidden', mode === 'local');
+  updateParseBtn();
+}
+
+function getSelectedItems() {
+  if (_parseMode === 'direct') {
+    return Array.from(document.querySelectorAll('.file-checkbox:checked')).map(cb => cb.dataset.path);
+  } else {
+    return Array.from(document.querySelectorAll('.ref-checkbox:checked')).map(cb => cb.dataset.citekey);
+  }
+}
+
+function updateParseBtn() {
+  const btn = document.getElementById('btnParse');
+  if (!btn) return;
+  const hasOutput = !!(document.getElementById('outputDir') && document.getElementById('outputDir').value);
+  const hasFiles = getSelectedItems().length > 0;
+  let hasMethod = true;
+  if (_parseMethod !== 'local') {
+    const tok = document.getElementById('parseApiToken').value.trim();
+    hasMethod = !!tok;
+  }
+  btn.disabled = !(hasFiles && hasOutput && hasMethod);
+  if (_parseMethod !== 'local' && !hasMethod) btn.title = '请先在设置中配置 API Token';
+  else if (!hasFiles) btn.title = '请先选择文件';
+  else if (!hasOutput) btn.title = '请先选择输出目录';
+  else btn.title = '';
 }
 
 async function startParse() {
-  if (_parseMode === 'direct') {
-    const paths = Array.from(document.querySelectorAll('.file-checkbox:checked')).map(cb => cb.dataset.path);
-    if (!paths.length) return addLog('⚠ 请勾选要解析的文件');
-    const outputDir = document.getElementById('outputDir').value || (await API.get('/api/config')).output_dir || '';
-    if (!outputDir) return addLog('⚠ 请设置输出目录');
-    try {
-      await API.post('/api/files/parse', { file_paths: paths, output_dir: outputDir, backend: document.getElementById('backend').value, lang: document.getElementById('lang').value });
-      document.getElementById('btnParse').disabled = true;
-      document.getElementById('btnCancel').disabled = false;
-      updateStatus('解析中...', 'ok');
-    } catch(e) { addLog('启动失败: ' + e.message); }
-  } else {
-    const citekeys = getSelectedCitekeys();
-    if (!citekeys.length) return addLog('⚠ 请勾选要解析的文献');
-    const outputDir = document.getElementById('outputDir').value || (await API.get('/api/config')).output_dir || '';
-    if (!outputDir) return addLog('⚠ 请设置输出目录');
-    try {
-      await API.post('/api/parse/start', { citekeys, output_dir: outputDir, backend: document.getElementById('backend').value, lang: document.getElementById('lang').value });
-      document.getElementById('btnParse').disabled = true;
-      document.getElementById('btnCancel').disabled = false;
-      updateStatus('解析中...', 'ok');
-    } catch(e) { addLog('启动失败: ' + e.message); }
+  if (_parseMethod !== 'local' && !_envReady) {
+    addLog('⚠ 本地未就绪，已切换到云端模式');
   }
+  const paths = getSelectedItems();
+  if (!paths.length) return addLog('⚠ 请勾选要解析的文件');
+  const outputDir = document.getElementById('outputDir').value;
+  if (!outputDir) return addLog('⚠ 请设置输出目录');
+  
+  try {
+    if (_parseMode === 'direct') {
+      await API.post('/api/files/parse', {
+        file_paths: paths,
+        output_dir: outputDir,
+        backend: document.getElementById('backend').value,
+        lang: document.getElementById('lang').value,
+        parse_mode: _parseMethod,
+        api_token: document.getElementById('parseApiToken').value.trim()
+      });
+    } else {
+      await API.post('/api/parse/start', {
+        citekeys: paths,
+        output_dir: outputDir,
+        backend: document.getElementById('backend').value,
+        lang: document.getElementById('lang').value,
+      });
+    }
+    document.getElementById('btnParse').disabled = true;
+    document.getElementById('btnCancel').disabled = false;
+    updateStatus('解析中...', 'ok');
+  } catch(e) { addLog('启动失败: ' + e.message); }
 }
-
-function getSelectedCitekeys() { return Array.from(document.querySelectorAll('.ref-checkbox:checked')).map(cb => cb.dataset.citekey); }
 
 async function pickOutputDir() {
   const result = await electronAPI.openDirectory();
-  if (!result.canceled) document.getElementById('outputDir').value = result.filePaths[0];
+  if (!result.canceled) { 
+    document.getElementById('outputDir').value = result.filePaths[0]; 
+    updateParseBtn();
+  }
 }
 
 async function cancelParse() {
@@ -792,45 +900,31 @@ async function cleanupMemory() {
 // ═══════════ WORKFLOW B (生成 Word) ═══════════
 async function pickMDFile() {
   const r = await electronAPI.openFile({ filters: [{ name: 'Markdown', extensions: ['md'] }], properties: ['openFile'] });
-  if (!r.canceled && r.filePaths.length) document.getElementById('mdPath').value = r.filePaths[0];
+  if (!r.canceled && r.filePaths.length) { document.getElementById('mdPath').value = r.filePaths[0]; updateDocxBtn(); }
 }
 async function pickJsonFile() {
   const r = await electronAPI.openFile({ filters: [{ name: 'JSON Files', extensions: ['json'] }], properties: ['openFile'] });
-  if (!r.canceled && r.filePaths.length) document.getElementById('zotJsonPath').value = r.filePaths[0];
+  if (!r.canceled && r.filePaths.length) { document.getElementById('zotJsonPath').value = r.filePaths[0]; updateDocxBtn(); }
 }
 async function pickDocxOutputDir() {
   const r = await electronAPI.openDirectory();
   if (!r.canceled) document.getElementById('docxOutputDir').value = r.filePaths[0];
 }
+
+function updateDocxBtn() {
+  const btn = document.getElementById('btnGenerateDocx');
+  if (!btn) return;
+  const md = document.getElementById('mdPath').value.trim();
+  const js = document.getElementById('zotJsonPath').value.trim();
+  btn.disabled = !(md && js);
+}
+
 async function generateDocx() {
   const md = document.getElementById('mdPath').value, js = document.getElementById('zotJsonPath').value;
   if (!md || !js) return addLog('⚠ 请选择 Markdown 文件和 Zotero JSON 文件');
   try { await API.post('/api/docx/generate', { md_path: md, json_path: js, output_dir: document.getElementById('docxOutputDir').value });
     document.getElementById('docxProgressText').textContent = '生成中，请查看下方日志...'; }
   catch(e) { addLog('生成失败: ' + e.message); }
-}
-
-// ═══════════ SETUP WIZARD ═══════════
-async function initSetup() {
-  try {
-    const steps = await API.get('/api/setup/steps');
-    let html = '';
-    steps.forEach((step, i) => {
-      html += '<div class="step-item' + (step.status === 'done' ? ' done' : '') + '" id="step-' + step.id + '"><div class="step-num">' + (step.status === 'done' ? '✓' : i + 1) + '</div><div class="step-info" style="flex:1"><div class="step-name">' + escHtml(step.name) + '</div><div class="step-desc" style="margin-top:4px;line-height:1.5">' + escHtml(step.description) + '</div><div style="display:flex;gap:16px;margin-top:6px;font-size:11px;color:var(--dim)"><span>📁 安装位置: ' + escHtml(step.location) + '</span><span>💾 磁盘: ' + escHtml(step.size) + '</span></div></div><button class="btn ' + (step.status === 'done' ? 'success' : 'primary') + '" id="btn-' + step.id + '" onclick="executeStep(\'' + step.id + '\')" ' + (step.status === 'done' ? 'disabled' : '') + '>' + (step.status === 'done' ? '✓ 已完成' : escHtml(step.action_text)) + '</button></div>';
-    });
-    document.getElementById('setupSteps').innerHTML = html;
-  } catch(e) { console.error(e); }
-}
-
-async function executeStep(stepId) {
-  const btn = document.getElementById('btn-' + stepId);
-  if (btn) { btn.disabled = true; btn.textContent = '执行中...'; }
-  document.getElementById('setupProgressText').textContent = '执行中...';
-  try { await API.post('/api/setup/step/' + stepId); } catch(e) { addLog('执行失败: ' + e.message); }
-  setTimeout(() => {
-    initSetup();
-    checkCapability();
-  }, 2000);
 }
 
 // ═══════════ SETTINGS ═══════════
@@ -846,6 +940,14 @@ async function loadSettings() {
     document.getElementById('cfLang').value = cfg.lang || 'en';
     document.getElementById('cfgGpuTemp').value = cfg.gpu_temp_threshold || 70;
     document.getElementById('cfgApiToken').value = cfg.mineru_api_token || '';
+    // 同步到解析页 token 字段
+    const pToken = document.getElementById('parseApiToken');
+    if (pToken) pToken.value = cfg.mineru_api_token || '';
+    // 同步到解析页输出目录
+    const oDir = document.getElementById('outputDir');
+    if (oDir && !oDir.value) oDir.value = cfg.output_dir || '';
+    updateParseBtn();
+    updateDocxBtn();
   } catch(e) {}
 }
 
@@ -890,19 +992,21 @@ async function waitBackend(maxSec) {
 async function init() {
   await API.init();
   
+  // 绑定导航：所有页面始终可点，不做禁用
   document.querySelectorAll('.nav-item').forEach(item => {
     item.addEventListener('click', () => {
       const page = item.dataset.page;
-      // dashboard/about/setup 始终可点；其他需要环境就绪
-      if (page !== 'dashboard' && page !== 'about' && page !== 'setup' && !_envReady) {
-        updateStatus('请先完成环境安装', 'warn');
-        return;
-      }
       navTo(page);
     });
   });
   
-  navTo('dashboard');
+  // 绑定解析按钮的实时启用逻辑
+  document.getElementById('outputDir')?.addEventListener('input', updateParseBtn);
+  document.getElementById('parseApiToken')?.addEventListener('input', updateParseBtn);
+  document.getElementById('mdPath')?.addEventListener('input', updateDocxBtn);
+  document.getElementById('zotJsonPath')?.addEventListener('input', updateDocxBtn);
+  
+  switchTab('dashboard');
   updateStatus('后端启动中...', 'warn');
 
   const ok = await waitBackend(18);
