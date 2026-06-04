@@ -789,12 +789,12 @@ class ConfigData(BaseModel):
 
 @app.get("/api/health")
 async def health():
-    return {"status": "ok", "version": "3.2.3"}
+    return {"status": "ok", "version": "3.2.4"}
 
 @app.get("/api/quick")
 async def quick_status():
     return {
-        "status": "ok", "version": "3.2.3",
+        "status": "ok", "version": "3.2.4",
         "gpu": detect_gpu_fast(), "models": detect_models_fast(),
         "conda": cached_find_conda(), "mineru": cached_detect_mineru_env(),
         "parse_running": state["parse_running"], "setup_running": state["setup_running"],
@@ -964,9 +964,12 @@ async def start_direct_parse(data: dict):
 
     def run_direct_parse():
         try:
-            if parse_mode == "cloud_api" or parse_mode == "cloud_model":
-                # 云端解析走 MinerU 官方 API
-                _cloud_parse_core(items, output_dir, parse_mode, api_token, lang)
+            if parse_mode == "agent_free":
+                # Agent Lightweight API（免 Token）
+                _agent_parse_core(items, output_dir, lang)
+            elif parse_mode == "precision_api":
+                # Precision Extract API（需 Token）
+                _cloud_parse_core(items, output_dir, "vlm", api_token, lang)
             else:
                 # 本地解析
                 env = cached_detect_mineru_env()
@@ -981,11 +984,11 @@ async def start_direct_parse(data: dict):
     executor.submit(run_direct_parse)
     return {"message": "Parse started (direct files)", "total": len(items)}
 
-# ── Cloud Parse (MinerU 官方 API) ──
-def _cloud_parse_core(items, output_dir, parse_mode, api_token, lang):
-    """parse_mode: 'cloud_api' (官方在线API) 或 'cloud_model' (云端模型，付费更快)"""
+# ── Cloud Parse: Precision Extract API (需要 Token，精准) ──
+def _cloud_parse_core(items, output_dir, model_version, api_token, lang):
+    """model_version: 'pipeline' | 'vlm' | 'MinerU-HTML'"""
     if not api_token:
-        sync_log("✗ 未配置 MinerU Cloud API Token，请在设置中填入")
+        sync_log("✗ 精准 API 模式需要 Token，请先在解析页面配置")
         return
 
     api_url = "https://mineru.net/api/v4"
@@ -994,19 +997,29 @@ def _cloud_parse_core(items, output_dir, parse_mode, api_token, lang):
 
     for idx, it in enumerate(items):
         if state["parse_cancel_requested"]:
-            sync_log(f"⏹ 取消云端解析 (剩余 {total - idx} 篇)"); break
+            sync_log(f"⏹ 取消 (剩余 {total - idx} 篇)"); break
 
-        sync_log(f"\n☁ [{idx+1}/{total}] {it['name']} (云端{'API' if parse_mode == 'cloud_api' else '模型'})")
+        sync_log(f"\n☁ [{idx+1}/{total}] {it['name']} (精准 API / {model_version})")
         state["parse_progress"]["current"] = idx
         state["parse_progress"]["current_file"] = it["name"]
         state["parse_progress"]["file_progress"] = 10
 
         try:
-            # 1. 申请上传链接
+            # 1. 申请上传链接（官方格式：files 数组 + model_version）
+            file_ext = Path(it["pdf_path"]).suffix.lower().lstrip('.') or 'pdf'
+            content_type_map = {
+                'pdf': 'application/pdf', 'docx': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+                'pptx': 'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+                'xlsx': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+                'png': 'image/png', 'jpg': 'image/jpeg', 'jpeg': 'image/jpeg',
+            }
             req_body = json.dumps({
-                "enable_formula": True, "enable_table": True,
-                "language": lang if lang in ("en","ch") else "en",
-                "is_ocr": True, "model_version": "vlm" if parse_mode == "cloud_model" else "pipeline"
+                "enable_formula": True,
+                "enable_table": True,
+                "language": lang if lang in ("en", "ch") else "en",
+                "is_ocr": True,
+                "model_version": model_version,
+                "files": [{"name": Path(it["pdf_path"]).name, "data_id": it["name"], "is_ocr": True}],
             }).encode("utf-8")
             req = urllib.request.Request(
                 f"{api_url}/file-urls/batch",
@@ -1016,27 +1029,27 @@ def _cloud_parse_core(items, output_dir, parse_mode, api_token, lang):
             with urllib.request.urlopen(req, timeout=30) as resp:
                 rdata = json.loads(resp.read().decode("utf-8"))
             if rdata.get("code") != 0:
-                sync_log(f"  ✗ 申请上传链接失败: {rdata.get('msg', '未知错误')}")
+                sync_log(f"  ✗ 申请上传链接失败: {rdata.get('msg', '未知')}")
                 continue
             batch_id = rdata["data"]["batch_id"]
-            upload_urls = rdata["data"]["file_urls"]
-            if not upload_urls:
-                sync_log(f"  ✗ 申请上传链接失败: 返回为空")
+            file_urls = rdata["data"].get("file_urls") or []
+            if not file_urls:
+                sync_log(f"  ✗ 申请上传链接失败: file_urls 为空")
                 continue
-            upload_url = upload_urls[0]
+            upload_url = file_urls[0]
 
-            # 2. 上传文件
+            # 2. PUT 上传文件
             state["parse_progress"]["file_progress"] = 30
             with open(it["pdf_path"], "rb") as f:
                 file_data = f.read()
             upload_req = urllib.request.Request(upload_url, data=file_data, method="PUT",
-                                                headers={"Content-Type": "application/pdf"})
-            urllib.request.urlopen(upload_req, timeout=300).read()
-            sync_log(f"  ✓ 上传成功: {it['name']}")
+                                                headers={"Content-Type": content_type_map.get(file_ext, "application/octet-stream")})
+            urllib.request.urlopen(upload_req, timeout=600).read()
+            sync_log(f"  ✓ 上传成功")
 
             # 3. 轮询查询结果
             state["parse_progress"]["file_progress"] = 50
-            max_wait = 600  # 10 分钟
+            max_wait = 900  # 15 分钟
             polled = 0
             zip_url = None
             while polled < max_wait:
@@ -1046,6 +1059,9 @@ def _cloud_parse_core(items, output_dir, parse_mode, api_token, lang):
                 qreq = urllib.request.Request(qurl, headers={"Authorization": f"Bearer {api_token}"})
                 with urllib.request.urlopen(qreq, timeout=30) as qresp:
                     qdata = json.loads(qresp.read().decode("utf-8"))
+                if qdata.get("code") != 0:
+                    sync_log(f"  ⚠ 轮询异常: {qdata.get('msg', '')}")
+                    continue
                 extract = qdata.get("data", {}).get("extract_result", [])
                 if extract:
                     er = extract[0]
@@ -1054,18 +1070,18 @@ def _cloud_parse_core(items, output_dir, parse_mode, api_token, lang):
                         zip_url = er.get("full_md_link") or er.get("zip_url")
                         break
                     elif state_msg == "failed":
-                        sync_log(f"  ✗ 云端解析失败: {er.get('err_msg', '未知')}")
+                        sync_log(f"  ✗ 解析失败: {er.get('err_msg', '未知')}")
                         break
                     else:
                         state["parse_progress"]["file_progress"] = 50 + min(40, polled * 40 // max_wait)
                         continue
             if not zip_url:
-                sync_log(f"  ⚠ {it['name']} 云端超时或失败")
+                sync_log(f"  ⚠ {it['name']} 超时未返回结果")
                 continue
 
             # 4. 下载并解压
             state["parse_progress"]["file_progress"] = 95
-            with urllib.request.urlopen(zip_url, timeout=300) as zresp:
+            with urllib.request.urlopen(zip_url, timeout=600) as zresp:
                 zip_bytes = zresp.read()
             dst = Path(output_dir) / it["name"]
             dst.mkdir(parents=True, exist_ok=True)
@@ -1073,12 +1089,128 @@ def _cloud_parse_core(items, output_dir, parse_mode, api_token, lang):
                 zf.extractall(dst)
             ok += 1
             state["parse_progress"]["file_progress"] = 100
-            sync_log(f"  ✓ {it['name']} 云端解析完成")
+            sync_log(f"  ✓ {it['name']} 完成")
         except Exception as e:
             sync_log(f"  ✗ {it['name']}: {e}")
 
     state["parse_progress"]["current"] = total
-    sync_log(f"\n{'='*50}\n☁ 云端完成: {ok}/{total} 成功")
+    sync_log(f"\n{'='*50}\n☁ 精准 API 完成: {ok}/{total} 成功")
+
+
+# ── Cloud Parse: Agent Lightweight API (免 Token，IP 限流) ──
+def _agent_parse_core(items, output_dir, lang):
+    """单文件 ≤10MB/20页，无需 Token，IP 限流"""
+    if not items:
+        return
+    api_url = "https://mineru.net/api/v1/agent/parse/file"
+    ok = 0; total = len(items)
+    state["_current_stop"] = threading.Event()
+
+    for idx, it in enumerate(items):
+        if state["parse_cancel_requested"]:
+            sync_log(f"⏹ 取消 (剩余 {total - idx} 篇)"); break
+
+        # 检查文件大小
+        try:
+            file_size = Path(it["pdf_path"]).stat().st_size
+            if file_size > 10 * 1024 * 1024:
+                sync_log(f"  ✗ {it['name']} 超过 10MB，免 API 不支持")
+                continue
+        except Exception as e:
+            sync_log(f"  ✗ {it['name']} 读取失败: {e}")
+            continue
+
+        sync_log(f"\n☁ [{idx+1}/{total}] {it['name']} (免 API / 轻量)")
+        state["parse_progress"]["current"] = idx
+        state["parse_progress"]["current_file"] = it["name"]
+        state["parse_progress"]["file_progress"] = 20
+
+        try:
+            # 1. multipart/form-data 上传 + 提交
+            boundary = uuid.uuid4().hex
+            file_name = Path(it["pdf_path"]).name
+            with open(it["pdf_path"], "rb") as f:
+                file_data = f.read()
+
+            # 构建 multipart body
+            body = b""
+            # 文本字段
+            for k, v in [("enable_formula", "true"), ("enable_table", "true"), ("language", lang if lang in ("en", "ch") else "en")]:
+                body += f"--{boundary}\r\nContent-Disposition: form-data; name=\"{k}\"\r\n\r\n{v}\r\n".encode()
+            # 文件字段
+            file_ext = Path(it["pdf_path"]).suffix.lower().lstrip('.') or 'pdf'
+            ct = {"pdf": "application/pdf", "png": "image/png", "jpg": "image/jpeg", "jpeg": "image/jpeg"}.get(file_ext, "application/octet-stream")
+            body += f"--{boundary}\r\nContent-Disposition: form-data; name=\"file\"; filename=\"{file_name}\"\r\nContent-Type: {ct}\r\n\r\n".encode()
+            body += file_data
+            body += f"\r\n--{boundary}--\r\n".encode()
+
+            req = urllib.request.Request(
+                api_url, data=body, method="POST",
+                headers={"Content-Type": f"multipart/form-data; boundary={boundary}"}
+            )
+            with urllib.request.urlopen(req, timeout=120) as resp:
+                rdata = json.loads(resp.read().decode("utf-8"))
+
+            if rdata.get("code") != 0:
+                sync_log(f"  ✗ 提交失败: {rdata.get('msg', '未知')}")
+                continue
+            state["parse_progress"]["file_progress"] = 60
+
+            # 2. 轮询（Agent 模式：返回中可能含 markdown 链接或 task_id）
+            data = rdata.get("data", {})
+            md_url = data.get("markdown_url") or data.get("content_url")
+            task_id = data.get("task_id")
+
+            if md_url:
+                # 直接返回结果
+                state["parse_progress"]["file_progress"] = 90
+                with urllib.request.urlopen(md_url, timeout=300) as mresp:
+                    md_bytes = mresp.read()
+                dst = Path(output_dir) / it["name"]
+                dst.mkdir(parents=True, exist_ok=True)
+                if md_url.endswith(".zip"):
+                    with zipfile.ZipFile(io.BytesIO(md_bytes)) as zf:
+                        zf.extractall(dst)
+                else:
+                    (dst / f"{it['name']}.md").write_bytes(md_bytes)
+                ok += 1
+                state["parse_progress"]["file_progress"] = 100
+                sync_log(f"  ✓ {it['name']} 完成")
+            elif task_id:
+                # 轮询 task_id
+                max_wait = 300
+                polled = 0
+                while polled < max_wait:
+                    if state["parse_cancel_requested"]: break
+                    time.sleep(5); polled += 5
+                    qurl = f"{api_url.replace('/file', '')}/tasks/{task_id}"
+                    qreq = urllib.request.Request(qurl)
+                    with urllib.request.urlopen(qreq, timeout=30) as qresp:
+                        qdata = json.loads(qresp.read().decode("utf-8"))
+                    st = qdata.get("data", {}).get("state", "")
+                    if st == "done":
+                        md_url = qdata["data"].get("markdown_url") or qdata["data"].get("content_url")
+                        if md_url:
+                            with urllib.request.urlopen(md_url, timeout=300) as mresp:
+                                md_bytes = mresp.read()
+                            dst = Path(output_dir) / it["name"]
+                            dst.mkdir(parents=True, exist_ok=True)
+                            (dst / f"{it['name']}.md").write_bytes(md_bytes)
+                            ok += 1
+                            state["parse_progress"]["file_progress"] = 100
+                            sync_log(f"  ✓ {it['name']} 完成")
+                        break
+                    elif st == "failed":
+                        sync_log(f"  ✗ 失败: {qdata['data'].get('err_msg', '未知')}")
+                        break
+                    state["parse_progress"]["file_progress"] = 60 + min(30, polled * 30 // max_wait)
+            else:
+                sync_log(f"  ✗ 响应中无 markdown_url 或 task_id")
+        except Exception as e:
+            sync_log(f"  ✗ {it['name']}: {e}")
+
+    state["parse_progress"]["current"] = total
+    sync_log(f"\n{'='*50}\n☁ 免 API 完成: {ok}/{total} 成功")
 
 # ── Shared Batch Parse Core ──
 def _batch_parse_core(items, env, output_dir, backend, lang):
