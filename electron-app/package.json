@@ -1,6 +1,6 @@
 {
   "name": "mineru-desktop",
-  "version": "3.2.5",
+  "version": "3.2.6",
   "description": "MinerU Desktop — Zotero生态 PDF 批量解析 & Markdown 转 Word",
   "author": "MinerU Desktop",
   "main": "src/main/index.js",

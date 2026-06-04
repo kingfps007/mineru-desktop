@@ -24,10 +24,10 @@ DEFAULT_PORT = 18766
 MAX_PARSE_TIMEOUT = 600
 GPU_TEMP_PAUSE_THRESHOLD = 70
 GPU_TEMP_PAUSE_SECONDS = 30
-# v3.2.5 改回 1：v3.1.1 改成 10 是为了"模型复用 10 篇省 SSD"，但
-# 实际跑 10 篇后 torch 累积的中间 tensor 会爆显存（8GB 卡必爆）。
-# 用户可在「本地配置」页面调整 batch_size 配置项（1=稳，2-3=快，10=仅大显存）
-BATCH_SIZE = 1
+# v3.2.6 回退到 3.1.2 策略：BATCH_SIZE=10 已被用户在 300+ 篇验证（只崩 1 次），
+# 我 v3.2.5 自作主张改成 1 是错的——每篇重新加载模型多花 5-10s。
+# 此处保留 get_batch_size() 供用户在「本地配置」微调（仅显存 ≥16GB 可上调到 3-5）。
+BATCH_SIZE = 10
 MAX_RETRIES = 3
 
 def get_batch_size():
@@ -62,47 +62,65 @@ state = {
 
 # ── GPU / CPU / Process Cleanup ──
 def cleanup_memory():
-    """释放显存 + 杀 mineru 残留进程树（v3.2.5 重写）
+    """释放显存 + 清理残留进程（v3.2.6 回退到 3.1.2 风格）
 
-    关键改进（v3.2.4 教训）：
-    1. **杀进程树 /F /T /IM mineru.exe** — mineru.exe 是 thin wrapper，它 spawn 出的
-       python.exe worker 才是真正消耗显存的进程。只杀 wrapper 杀不到 worker。
-    2. **不再 spawn 子进程跑 torch.cuda.empty_cache** — 子进程 import torch 可能 hang 10s，
-       引发主进程看似无响应。改用 /F /T 后显存自然随 worker 退出而释放。
-    3. **Python GC 保留** — 释放主进程内的 Python 对象。
+    v3.2.5 教训：
+    1. **不要 `taskkill /F /T /IM mineru.exe`** —— 这会**杀当前正在解析的 mineru.exe**，
+       引发"清理内存后程序退出"。3.1.2 的精准扫描（只杀 `mineru-api` HTTP server 残留）
+       被用户用 300+ 篇验证过：稳定不误杀。
+    2. **杀 `mineru-api` 字符串的进程** —— 这是 mineru HTTP server 启动时的映像名，
+       CLI 解析时**不会出现**这个字符串。
+    3. **保留 spawn torch 子进程** —— 3.1.2 就有这个逻辑（`import torch; empty_cache`）。
+       v3.2.5 因为 hang 风险去掉是过度保守。
     """
     released = []
     killed = 0
 
-    # 1. 杀 mineru 进程树（/F 强制 + /T 杀子进程 + /IM 按映像名）
-    #    这一步会把所有 mineru.exe wrapper + 它 spawn 的 python.exe worker 全部杀掉
-    #    显存随 worker 进程退出自动归还操作系统
+    # 1. 精准扫描 tasklist：只杀 mineru-api 残留（HTTP server 残留）
+    #    关键：不能杀 `mineru` 字符串的所有 .exe，否则会杀解析中的 mineru.exe
     try:
-        r = subprocess.run(
-            ['taskkill', '/F', '/T', '/IM', 'mineru.exe'],
-            capture_output=True, text=True, timeout=10
-        )
-        # taskkill 输出形如：
-        #   "成功: 已终止 PID 1234 的进程。"
-        #   "错误: 找不到进程 mineru.exe。"
-        out = (r.stdout or '') + (r.stderr or '')
-        for line in out.splitlines():
-            if '已终止' in line or 'SUCCESS' in line.upper():
-                killed += 1
+        r = subprocess.run(['tasklist', '/fo', 'csv', '/nh'],
+                           capture_output=True, text=True, timeout=5)
+        for line in r.stdout.splitlines():
+            low = line.lower()
+            # 3.1.2 验证过的条件：mineru-api 字符串 OR uvicorn 但不含 mineru
+            if 'mineru-api' in low or ('uvicorn' in low and 'mineru' not in low):
+                parts = line.split(',')
+                if len(parts) >= 2:
+                    pid_str = parts[1].strip('"')
+                    if pid_str.isdigit():
+                        try:
+                            subprocess.run(['taskkill', '/F', '/PID', pid_str],
+                                           capture_output=True, timeout=3)
+                            killed += 1
+                        except subprocess.TimeoutExpired:
+                            pass
     except subprocess.TimeoutExpired:
-        sync_log("⚠ 杀 mineru 进程超时（>10s），跳过")
+        sync_log("⚠ 扫描 tasklist 超时（>5s），跳过")
     except Exception as e:
-        sync_log(f"⚠ 杀 mineru 进程出错: {e}")
+        sync_log(f"⚠ 扫描进程时出错: {e}")
     if killed:
-        released.append(f"终止 {killed} 个 mineru 进程（含子进程）")
+        released.append(f"终止 {killed} 个残留进程")
 
-    # 2. Python GC 释放主进程内对象
+    # 2. Python GC 释放主进程对象
+    before = _get_mem_mb()
+    gc.collect()
+    after = _get_mem_mb()
+    if before - after > 10:
+        released.append(f"释放内存 {before - after:.0f} MB")
+
+    # 3. GPU 显存释放（3.1.2 风格的 spawn torch 子进程）
+    #    触发条件：环境已就绪（env_ready）。否则跳过（避免 hang）
     try:
-        before = _get_mem_mb()
-        gc.collect()
-        after = _get_mem_mb()
-        if before - after > 10:
-            released.append(f"释放 Python 内存 {before - after:.0f} MB")
+        env = cached_detect_mineru_env()
+        python_exe = env["python"] if env and env.get("python") else None
+        if python_exe:
+            subprocess.run(
+                [python_exe, "-c",
+                 "import gc,torch; gc.collect(); torch.cuda.empty_cache(); print(torch.cuda.memory_allocated()//1024**2)"],
+                capture_output=True, text=True, timeout=10)
+    except subprocess.TimeoutExpired:
+        pass
     except Exception:
         pass
 
@@ -813,12 +831,12 @@ class ConfigData(BaseModel):
 
 @app.get("/api/health")
 async def health():
-    return {"status": "ok", "version": "3.2.5"}
+    return {"status": "ok", "version": "3.2.6"}
 
 @app.get("/api/quick")
 async def quick_status():
     return {
-        "status": "ok", "version": "3.2.5",
+        "status": "ok", "version": "3.2.6",
         "gpu": detect_gpu_fast(), "models": detect_models_fast(),
         "conda": cached_find_conda(), "mineru": cached_detect_mineru_env(),
         "parse_running": state["parse_running"], "setup_running": state["setup_running"],
@@ -1361,22 +1379,21 @@ async def start_parse(req: ParseRequest):
 
 @app.post("/api/parse/cancel")
 async def cancel_parse():
+    """v3.2.6 回退到 3.1.2 优雅风格：terminate → wait 2s → kill
+    v3.2.5 用的 taskkill /F /T /PID 过于激进，会让 worker 丢数据、关文件未刷盘。
+    3.1.2 的 3 步流程给 worker 2s 优雅退出时间，被用户 300+ 篇验证稳定。
+    """
     state["parse_cancel_requested"] = True
     proc = state.get("_current_proc")
     stop = state.get("_current_stop")
     if stop: stop.set()
-    if proc and proc.pid:
-        # 关键：用 taskkill /F /T /PID 杀整个进程树
-        # mineru.exe 是 thin wrapper，真正跑模型的是它 spawn 的 python.exe worker
-        # 只杀 wrapper（proc.kill）→ worker 还在 → 显存不释放 → 内存爆掉
-        try:
-            subprocess.run(
-                ['taskkill', '/F', '/T', '/PID', str(proc.pid)],
-                capture_output=True, timeout=5
-            )
-        except Exception:
-            try: proc.kill()  # 兜底
-            except: pass
+    if proc:
+        try: proc.terminate()    # 1. 优雅终止（Ctrl+C 风格）
+        except: pass
+        try: proc.wait(timeout=2)  # 2. 等待 2s 让 worker 清理
+        except: pass
+        try: proc.kill()         # 3. 兜底强杀
+        except: pass
     state["parse_running"] = False
     state["parse_paused"] = False
     state["_current_proc"] = None
