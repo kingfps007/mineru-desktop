@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>MinerU Desktop v3.0</title>
+<title>MinerU Desktop v3.2.0</title>
 <style>
 :root {
   --bg: #ffffff; --surface: #f5f7fa; --overlay: #e8ecf1;
@@ -43,7 +43,7 @@ body {
 
 .app { display: flex; flex: 1; overflow: hidden; }
 .sidebar {
-  width: 200px; min-width: 200px; background: var(--surface); border-right: 1px solid var(--border);
+  width: 180px; min-width: 180px; background: var(--surface); border-right: 1px solid var(--border);
   display: flex; flex-direction: column; padding: 12px 8px;
 }
 .nav-item {
@@ -51,11 +51,10 @@ body {
   cursor: pointer; color: var(--fg); font-size: 13px; font-weight: 500; transition: var(--transition);
   border: none; background: none; width: 100%; text-align: left;
 }
-.nav-item:hover { background: var(--overlay); color: var(--accent); }
+.nav-item:hover:not(:disabled) { background: var(--overlay); color: var(--accent); }
 .nav-item.active { background: var(--overlay); color: var(--accent); font-weight: 700; }
+.nav-item:disabled { opacity: 0.4; cursor: not-allowed; }
 .nav-item .icon { font-size: 18px; width: 24px; text-align: center; }
-.nav-divider { height: 1px; background: var(--border); margin: 8px 4px; }
-.nav-section { font-size: 10px; color: var(--dim); text-transform: uppercase; padding: 8px 12px 4px; letter-spacing: 1px; }
 
 .main { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
 .content { flex: 1; overflow-y: auto; padding: 24px; }
@@ -75,7 +74,7 @@ body {
   border-radius: var(--radius); padding: 20px; margin-bottom: 16px;
   box-shadow: 0 1px 3px rgba(0,0,0,0.06);
 }
-.card-title { font-size: 15px; font-weight: 700; color: var(--fg); margin-bottom: 12px; }
+.card-title { font-size: 15px; font-weight: 700; color: var(--fg); margin-bottom: 12px; display: flex; align-items: center; gap: 8px; }
 .card-subtitle { font-size: 12px; color: var(--dim); margin-bottom: 16px; }
 
 .btn {
@@ -170,13 +169,15 @@ tr:hover td { background: var(--surface); }
 .text-center { text-align: center; }
 .text-dim { color: var(--dim); font-size: 12px; }
 .text-mono { font-family: 'Consolas', monospace; }
+.grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+.grid-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
 </style>
 </head>
 <body>
 
 <div class="titlebar">
   <div class="titlebar-left">
-    <span class="titlebar-logo">⬡ MinerU Desktop<span> v3.1.4</span></span>
+    <span class="titlebar-logo">⬡ MinerU Desktop<span> v3.2.0</span></span>
   </div>
   <div class="titlebar-btns">
     <button class="titlebar-btn" onclick="electronAPI.minimize()">─</button>
@@ -187,44 +188,221 @@ tr:hover td { background: var(--surface); }
 
 <div class="app">
   <div class="sidebar" id="sidebar">
-    <div class="nav-section">导航</div>
-    <button class="nav-item active" data-page="dashboard">
+    <button class="nav-item active" data-page="dashboard" id="nav-dashboard">
       <span class="icon">📊</span> 仪表盘
     </button>
-    <button class="nav-item" data-page="workflow-a">
+    <button class="nav-item" data-page="parse" id="nav-parse" disabled>
       <span class="icon">📄</span> 批量解析
     </button>
-    <button class="nav-item" data-page="workflow-b">
+    <button class="nav-item" data-page="word" id="nav-word" disabled>
       <span class="icon">📝</span> 生成 Word
     </button>
-    <div class="nav-divider"></div>
-    <div class="nav-section">系统</div>
-    <button class="nav-item" data-page="setup">
-      <span class="icon">⚙</span> 安装向导
-    </button>
-    <button class="nav-item" data-page="settings">
-      <span class="icon">🔧</span> 设置
-    </button>
-    <div class="nav-divider"></div>
-    <button class="nav-item" data-page="about">
+    <div style="flex:1"></div>
+    <button class="nav-item" data-page="about" id="nav-about">
       <span class="icon">ℹ</span> 关于
     </button>
   </div>
 
   <div class="main">
     <div class="content" id="content">
-      <div class="page" id="pg-dashboard"><div class="card" id="capabilityCard" style="border-left:3px solid var(--accent)"><div class="card-title">🖥 系统能力评估</div><div class="card-subtitle" id="capabilityText">检测中...</div></div><div class="card"><div class="card-title">📊 系统仪表盘</div><div class="card-subtitle">GPU · 模型 · 解析状态实时监控，每秒刷新</div><div style="display:grid;grid-template-columns:1fr 1fr;gap:16px"><div style="background:var(--overlay);padding:14px;border-radius:8px"><h3 style="font-size:13px;color:var(--accent);margin-bottom:10px">🖥 GPU 状态</h3><div id="gpuCardDetail" style="font-size:12px;color:var(--dim)">检测中...</div></div><div style="background:var(--overlay);padding:14px;border-radius:8px"><h3 style="font-size:13px;color:var(--accent);margin-bottom:10px">📦 模型状态</h3><div id="modelCardDetail" style="font-size:12px;color:var(--dim)">检测中...</div></div></div></div><div class="card"><div class="card-title">📋 功能说明</div><div class="card-subtitle" style="font-size:12px;line-height:1.8"><b>批量解析</b>: 从 Zotero BetterBibTeX 导出 JSON，自动匹配 PDF 路径，逐篇调用 MinerU (Pipeline+VLM 混合引擎) 解析为 Markdown + 图片。<br><b>生成 Word</b>: 将 [@citekey] 格式的 Markdown 稿件转为 .docx，引用标记自动注入 Zotero 域代码，Word 中 Refresh 即可更新参考文献。<br><b>安装向导</b>: 6 步初始化：环境扫描→Miniconda→MinerU→PyTorch→模型→GPU加速，每步独立确认。</div></div><div class="card"><div class="card-title"><span style="color:#d97706">⚠</span> 硬件需求</div><div class="card-subtitle" style="font-size:12px;line-height:1.8">Windows 10/11 64-bit · 8GB+ 内存 (推荐 16GB) · Pipeline 模式无需显卡 · VLM 加速需 NVIDIA 显卡 6GB+ 显存 · 模型下载约 6.5GB 磁盘 · 首次安装约需 30-60 分钟</div></div></div>
+      <!-- 仪表盘页面 -->
+      <div class="page" id="pg-dashboard">
+        <!-- 系统能力评估 & 环境检测 -->
+        <div class="card" id="capabilityCard" style="border-left:3px solid var(--accent)">
+          <div class="card-title" id="capabilityTitle">🖥 系统能力评估</div>
+          <div class="card-subtitle" id="capabilityText">检测中...</div>
+        </div>
 
-      <div class="page hidden" id="pg-workflow-a"><div class="card"><div class="card-title">📄 批量解析</div><div class="card-subtitle">从 Zotero BetterBibTeX 导出 JSON，自动解析所有 PDF</div><div class="flex-row gap-12 mb-12"><button class="btn primary" onclick="importZoteroJSON()">📥 导入 Zotero JSON</button><button class="btn" onclick="importDirectFiles()">📂 直接选文件</button></div><div id="importStatus" class="text-dim"></div><div class="mt-12" id="refTableContainer" style="max-height:400px;overflow-y:auto"></div><div id="directFileTable" style="display:none"></div></div><div class="card" id="parseControls" style="display:none"><div class="card-title">⚙ 解析设置</div><div class="input-row"><label>输出目录</label><input id="outputDir" placeholder="选择输出目录"><button class="btn" onclick="pickOutputDir()">浏览</button></div><div class="input-row"><label>后端引擎</label><select id="backend"><option value="vlm-auto-engine">VLM Auto (推荐——纯视觉大模型)</option><option value="pipeline">Pipeline (传统OCR——稳定可靠)</option><option value="hybrid-auto-engine">Hybrid Auto (本地VLM+OCR混合)</option></select></div><div class="input-row"><label>语言</label><select id="lang"><option value="en">English</option><option value="ch">中文</option></select></div><div class="flex-row mt-12"><button id="btnSelectAll" class="btn" onclick="toggleSelectAll()">☑ 全选</button><button id="btnParse" class="btn primary" onclick="startParse()">▶ 开始解析</button><button id="btnCancel" class="btn danger" onclick="cancelParse()" disabled>⏹ 取消</button><button class="btn" onclick="cleanupMemory()" title="清理 CPU/GPU 显存和僵尸进程">🧹 清理内存</button></div><div class="mt-12"><div class="progress-bar"><div class="progress-fill" id="parseProgressBar"></div></div><div class="text-dim mt-8" id="parseProgressText"></div></div></div><div class="card"><div class="card-title">📋 解析日志</div><div class="log-panel" id="logPanelA"></div></div></div>
+        <!-- GPU & 模型状态 -->
+        <div class="grid-2">
+          <div class="card">
+            <div class="card-title">🖥 GPU 状态</div>
+            <div id="gpuCardDetail" style="font-size:12px;color:var(--dim)">检测中...</div>
+          </div>
+          <div class="card">
+            <div class="card-title">📦 模型状态</div>
+            <div id="modelCardDetail" style="font-size:12px;color:var(--dim)">检测中...</div>
+          </div>
+        </div>
 
-      <div class="page hidden" id="pg-workflow-b"><div class="card"><div class="card-title">📝 Markdown → Zotero Word</div><div class="card-subtitle">将 Markdown 稿件转为 Word，Zotero 引用标记自动转为 Word 域代码</div><div class="input-row"><label>Markdown 文件</label><input id="mdPath" placeholder="选择 .md 文件"><button class="btn" onclick="pickMDFile()">浏览</button></div><div class="input-row"><label>Zotero JSON</label><input id="zotJsonPath" placeholder="选择 BBT 导出的 JSON"><button class="btn" onclick="pickJsonFile()">浏览</button></div><div class="input-row"><label>输出目录</label><input id="docxOutputDir" placeholder="默认 = MD 文件所在目录"><button class="btn" onclick="pickDocxOutputDir()">浏览</button></div><button class="btn primary mt-12" onclick="generateDocx()">▶ 生成 Word 文档</button><div class="mt-12" id="docxProgressText" class="text-dim"></div></div><div class="card"><div class="card-title">📋 生成日志</div><div class="log-panel" id="logPanelB"></div></div></div>
+        <!-- 安装向导（环境未就绪时显示） -->
+        <div id="setupSection" class="hidden">
+          <div class="card">
+            <div class="card-title">⚙ 安装向导</div>
+            <div class="card-subtitle">完成以下步骤以启用全部功能</div>
+            <div class="step-list" id="setupSteps"></div>
+            <div class="progress-bar mt-12"><div class="progress-fill" id="setupProgressBar"></div></div>
+            <div class="text-dim mt-8" id="setupProgressText"></div>
+          </div>
+          <div class="card">
+            <div class="card-title">📋 安装日志</div>
+            <div class="log-panel" id="logPanelS"></div>
+          </div>
+        </div>
 
-      <div class="page hidden" id="pg-setup"><div class="card"><div class="card-title">⚙ 安装向导</div><div class="card-subtitle">每一步都需手动确认，详细介绍安装内容、位置和所需磁盘空间。已完成的步骤自动跳过。</div><div class="step-list" id="setupSteps"></div><div class="progress-bar mt-12"><div class="progress-fill" id="setupProgressBar"></div></div><div class="text-dim mt-8" id="setupProgressText"></div></div><div class="card"><div class="card-title">📋 安装日志</div><div class="log-panel" id="logPanelS"></div></div></div>
+        <!-- 设置面板（环境就绪后显示） -->
+        <div id="settingsSection">
+          <div class="card">
+            <div class="card-title">🔧 系统设置</div>
+            <div class="input-row">
+              <label>输出目录</label>
+              <input id="cfgOutputDir" placeholder="选择输出目录">
+              <button class="btn" onclick="pickCfgOutputDir()">浏览</button>
+            </div>
+            <div class="input-row">
+              <label>默认后端</label>
+              <select id="cfgBackend">
+                <option value="vlm-auto-engine">VLM Auto</option>
+                <option value="pipeline">Pipeline</option>
+                <option value="hybrid-auto-engine">Hybrid Auto</option>
+              </select>
+            </div>
+            <div class="input-row">
+              <label>默认语言</label>
+              <select id="cfLang">
+                <option value="en">English</option>
+                <option value="ch">中文</option>
+              </select>
+            </div>
+            <div class="input-row">
+              <label>GPU 温度阈值</label>
+              <input id="cfgGpuTemp" type="number" value="70">°C
+            </div>
+            <div class="flex-row gap-12 mt-12">
+              <button class="btn primary" onclick="saveSettings()">💾 保存设置</button>
+              <button class="btn" onclick="cleanupMemory()" title="清理 CPU/GPU 显存">🧹 清理内存</button>
+            </div>
+          </div>
+          <div class="card">
+            <div class="card-title">☁ MinerU Cloud API</div>
+            <div class="card-subtitle">配置官方 Token 后可使用远程精准解析 API</div>
+            <div class="input-row">
+              <label>API Token</label>
+              <input id="cfgApiToken" type="password" placeholder="sk-xxxxxxxx">
+              <button class="btn" onclick="validateApiToken()">验证</button>
+            </div>
+            <div class="text-dim mt-8" id="apiValidateMsg"></div>
+            <div style="font-size:11px;color:var(--dim);margin-top:6px">服务地址: https://mineru.net/api/v4 (官方固定)</div>
+          </div>
+        </div>
 
-      <div class="page hidden" id="pg-settings"><div class="card"><div class="card-title">🔧 系统设置</div><div class="input-row"><label>输出目录</label><input id="cfgOutputDir"><button class="btn" onclick="pickCfgOutputDir()">浏览</button></div><div class="input-row"><label>默认后端</label><select id="cfgBackend"><option value="vlm-auto-engine">VLM Auto</option><option value="pipeline">Pipeline</option><option value="hybrid-auto-engine">Hybrid Auto</option><option value="vlm-http-client">VLM HTTP Client</option></select></div><div class="input-row"><label>默认语言</label><select id="cfLang"><option value="en">English</option><option value="ch">中文</option></select></div><div class="input-row"><label>GPU 温度阈值</label><input id="cfgGpuTemp" type="number" value="70">°C</div><button class="btn primary mt-12" onclick="saveSettings()">💾 保存设置</button></div><div class="card" id="apiSettings"><div class="card-title">☁ MinerU Cloud API</div><div class="card-subtitle">配置官方 Token 后可使用远程精准解析 API (mineru.net/api/v4)。无 Token 默认使用本地引擎。</div><div class="input-row"><label>API Token</label><input id="cfgApiToken" type="password" placeholder="sk-xxxxxxxx"><button class="btn" onclick="validateApiToken()">验证</button></div><div class="text-dim mt-8" id="apiValidateMsg"></div><div style="font-size:11px;color:var(--dim);margin-top:6px">服务地址: https://mineru.net/api/v4 (官方固定)</div></div></div>
+        <!-- 功能说明 -->
+        <div class="card">
+          <div class="card-title">📖 功能说明</div>
+          <div class="card-subtitle" style="line-height:1.8">
+            <b>批量解析</b>: 从 Zotero BetterBibTeX 导出 JSON 或直接选择文件，调用 MinerU 解析为 Markdown + 图片。
+            <br><b>生成 Word</b>: 将 Markdown 稿件转为 .docx，引用标记自动注入 Zotero 域代码。
+            <br><b>安装向导</b>: 6 步初始化：环境扫描→Miniconda→MinerU→PyTorch→模型→GPU加速。
+          </div>
+        </div>
+      </div>
 
-      <div class="page hidden" id="pg-about"><div class="card"><div class="card-title">ℹ 关于 MinerU Desktop v3.1.4</div><div class="card-subtitle" style="font-size:12px;line-height:1.8"><b>程序功能实现流程</b>:<br><br><b>1. 环境检测 (启动时)</b><br>· find_conda() 扫描 C:/ProgramData、~/.conda → 不到1ms<br>· detect_mineru_env() 检查 envs/MinerU/python.exe 文件存在性 → ms级<br>· detect_gpu_fast() 调用 nvidia-smi --query-gpu → <50ms<br>· detect_models_fast() 读取 mineru.json 配置 + 检查模型关键文件存在 → ms级<br>· capability_assessment() 综合以上信息输出四级能力评估 (full/capable/limited/basic)<br>· detect_gpu_deep() 调用 conda run -n MinerU python -c "import torch" → 5-15s (后台异步)<br><br><b>2. 批量解析 (方式一: Zotero)</b><br>· parse_zotero_json() 读取 BetterBibTeX JSON → 提取 citationKey/title/PDF路径/Debd<br>· 前端 renderRefTable() 渲染文献表格 (citekey/标题/PDF大小/已完成/待解析/无PDF)<br>· 勾选文献 → POST /api/parse/start → run_parse() 逐篇调用 mineru CLI<br>· mineru -p <pdf_path> -b <backend> -l <lang> -o <output_dir>/<citekey><br>· output = <citekey>.md + images/ 子目录<br>· GPU 温度 >70°C 自动暂停30秒散热 → 继续<br>· 每篇失败自动重试最多3次 · 中断后已完成的跳过不重复解析<br><br><b>3. 批量解析 (方式二: 直接选文件)</b><br>· Electron dialog.showOpenDialog 多选 PDF/DOCX/PPTX/XLSX/图片<br>· POST /api/files/import → 文件列表 (name/path/size/type/valid)<br>· POST /api/files/parse → 同 run_parse 流程<br><br><b>4. Markdown → Zotero Word</b><br>· load_bbt() 从 JSON 建立 citationKey → Zotero URI 映射<br>· process_inline_text() 正则匹配 [@citekey] → make_citation_json() → ADDIN ZOTERO_ITEM 域代码<br>· 图片 ![]() → add_picture() · 表格 |...| → add_table() · 标题 # → add_heading()<br>· LaTeX $...$ / $$...$$ 转 Consolas 字体 · add_bibl_field() 注入 Zotero 参考文献域<br>· python-docx 保存为 output_zotero_YYMMDD_HHMMSS.docx<br><br><b>5. 安装向导</b><br>· 9步逐步确认: 环境扫描→Miniconda→MinerU环境→PyTorch→MinerU包→模型→Zotero→BBT→GPU加速<br>· 每步调用对应的 conda/pip/mineru CLI 命令<br>· setup_runner.execute_step() → subprocess.Popen 实时输出到 WebSocket<br><br><b>6. 实时日志推送</b><br>· Python 后端 ThreadPoolExecutor → asyncio.run_coroutine_threadsafe(broadcast_log)<br>· 前端 WebSocket /ws/logs → addLog() → 同时写入 logPanelA/B/S<br><br><b>技术栈</b>:<br>· 核心引擎: MinerU 3.1.x (OpenDataLab) — pipeline/hybrid/vlm 三大后端<br>· VLM 模型: Qwen2VL 1.2B (MinerU2.5-Pro-2604) — 视觉大模型布局分析<br>· Pipeline 模型: PDF-Extract-Kit-1.0 — 传统规则引擎 (Layout/PP-DocLayoutV2/MFR/Table)<br>· 深度学习: PyTorch + Transformers (HuggingFace) + CUDA 12.1 · hf_xet 加速下载<br>· 后端: FastAPI + Uvicorn (Python 3.10) → REST 14端点 + WebSocket<br>· 前端: Electron 33 + Chromium 渲染 · 原生 HTML/CSS/JS (单文件, 无框架)<br>· 文献: Zotero BetterBibTeX JSON → python-docx 生成 OOXML 域代码<br>· 打包: electron-builder portable · 单文件 .exe<br><br><b>API 端点</b>:<br>· GET /api/health /api/quick /api/capability /api/gpu/deep /api/status<br>· GET /api/gpu /api/models /api/env<br>· GET /api/setup/steps · POST /api/setup/step/{id} · GET /api/setup/status<br>· POST /api/zotero/import · GET /api/zotero/references<br>· POST /api/files/import · GET /api/files/list · POST /api/files/parse<br>· POST /api/parse/start · POST /api/parse/cancel · GET /api/parse/status<br>· POST /api/docx/generate · GET /api/docx/status<br>· GET/POST /api/config<br>· WS /ws/logs<br><br><b>复刻指南</b>:<br>pip install fastapi uvicorn websockets python-docx python-dotenv hf_xet<br>conda create -n MinerU python=3.10 && conda activate MinerU<br>pip install torch torchvision --index-url https://download.pytorch.org/whl/cu121<br>pip install mineru && mineru-models-download -s modelscope -m all<br>npm install electron electron-builder && npx electron-builder --win<br><br><b>GitHub</b>: opendatalab/MinerU · <b>许可证</b>: Apache 2.0<b>更新日志</b>:<br><br>v3.1.4 (2026-06-03): 修复JS语法错误致仪表盘卡死(loadSettings丢失}) + 清理源码硬编码路径 + GitHub开源<br>v3.1.3 (2026-06-03): 修复标题栏版本号残留3.1.1+直接文件"Not Found"(补/api/files/parse)+API验证修复+锁定服务器地址<br>v3.1.2 (2026-06-03): 🧹 一键清理内存按钮 (gc+touch.cuda+杀僵尸进程)、取消解析立即kill进程+自动清理+恢复可用<br>v3.1.1 (2026-06-03): 默认 VLM 后端、10篇批量启动一个 MinerU 进程 (模型不复载省 SSD)、去掉 hybrid 降级<br>v3.1.0 (2026-06-03): 安装向导拆 Pipeline/VLM 下载+硬件跳过+Zotero/BBT 中文商店、Cloud API 验证、直接选文件导入<br>v3.0.9 (2026-06-02): 解析卡死修复 (stdout 后台线程+10min 超时)、默认 pipeline 后端<br>v3.0.8~3.0.5: 功能测试版本 (已废弃)<br>v3.0.4 (2026-06-01): 解析 502 修复 (后端降级 pipeline)+文件截断恢复 (WebSocket/DOCX/Config)<br>v3.0.3 (2026-06-01): 检测加载优化 (去除 mineru --version/rglob) 秒级启动<br>v3.0.2~v3.0.1 (2026-05): 初始版本 (Zotero 导入/批量解析/DOCX 生成/安装向导)</div></div></div>
+      <!-- 批量解析页面 -->
+      <div class="page hidden" id="pg-parse">
+        <div class="card">
+          <div class="card-title">📄 批量解析</div>
+          <div class="card-subtitle">从 Zotero BetterBibTeX 导出 JSON，自动解析所有 PDF</div>
+          <div class="flex-row gap-12 mb-12">
+            <button class="btn primary" onclick="importZoteroJSON()">📥 导入 Zotero JSON</button>
+            <button class="btn" onclick="importDirectFiles()">📂 直接选文件</button>
+          </div>
+          <div id="importStatus" class="text-dim"></div>
+          <div class="mt-12" id="refTableContainer" style="max-height:400px;overflow-y:auto"></div>
+          <div id="directFileTable" style="display:none"></div>
+        </div>
+        <div class="card" id="parseControls" style="display:none">
+          <div class="card-title">⚙ 解析设置</div>
+          <div class="input-row">
+            <label>输出目录</label>
+            <input id="outputDir" placeholder="选择输出目录">
+            <button class="btn" onclick="pickOutputDir()">浏览</button>
+          </div>
+          <div class="input-row">
+            <label>后端引擎</label>
+            <select id="backend">
+              <option value="vlm-auto-engine">VLM Auto (推荐)</option>
+              <option value="pipeline">Pipeline (稳定)</option>
+              <option value="hybrid-auto-engine">Hybrid Auto</option>
+            </select>
+          </div>
+          <div class="input-row">
+            <label>语言</label>
+            <select id="lang">
+              <option value="en">English</option>
+              <option value="ch">中文</option>
+            </select>
+          </div>
+          <div class="flex-row mt-12">
+            <button id="btnSelectAll" class="btn" onclick="toggleSelectAll()">☑ 全选</button>
+            <button id="btnParse" class="btn primary" onclick="startParse()">▶ 开始解析</button>
+            <button id="btnCancel" class="btn danger" onclick="cancelParse()" disabled>⏹ 取消</button>
+          </div>
+          <div class="mt-12">
+            <div class="progress-bar"><div class="progress-fill" id="parseProgressBar"></div></div>
+            <div class="text-dim mt-8" id="parseProgressText"></div>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-title">📋 解析日志</div>
+          <div class="log-panel" id="logPanelA"></div>
+        </div>
+      </div>
+
+      <!-- 生成 Word 页面 -->
+      <div class="page hidden" id="pg-word">
+        <div class="card">
+          <div class="card-title">📝 Markdown → Zotero Word</div>
+          <div class="card-subtitle">将 Markdown 稿件转为 Word，Zotero 引用标记自动转为 Word 域代码</div>
+          <div class="input-row">
+            <label>Markdown 文件</label>
+            <input id="mdPath" placeholder="选择 .md 文件">
+            <button class="btn" onclick="pickMDFile()">浏览</button>
+          </div>
+          <div class="input-row">
+            <label>Zotero JSON</label>
+            <input id="zotJsonPath" placeholder="选择 BBT 导出的 JSON">
+            <button class="btn" onclick="pickJsonFile()">浏览</button>
+          </div>
+          <div class="input-row">
+            <label>输出目录</label>
+            <input id="docxOutputDir" placeholder="默认 = MD 文件所在目录">
+            <button class="btn" onclick="pickDocxOutputDir()">浏览</button>
+          </div>
+          <button class="btn primary mt-12" onclick="generateDocx()">▶ 生成 Word 文档</button>
+          <div class="mt-12 text-dim" id="docxProgressText"></div>
+        </div>
+        <div class="card">
+          <div class="card-title">📋 生成日志</div>
+          <div class="log-panel" id="logPanelB"></div>
+        </div>
+      </div>
+
+      <!-- 关于页面 -->
+      <div class="page hidden" id="pg-about">
+        <div class="card">
+          <div class="card-title">ℹ 关于 MinerU Desktop v3.2.0</div>
+          <div class="card-subtitle" style="line-height:1.8">
+            MinerU Desktop 是一款基于 MinerU 的 PDF 解析工具，支持批量解析和 Word 文档生成。
+            <br><br><b>版本更新日志</b>:
+            <br>• <b>v3.2.0</b> (2026-06-04) - UI 重构：集成仪表盘与安装向导，四选项卡简洁布局，环境检测通过后才能使用其他功能
+            <br>• <b>v3.1.4</b> (2026-04-xx) - 内存清理按钮、取消后自动恢复、API验证修复
+            <br>• <b>v3.1.3</b> (2026-04-xx) - 添加直接文件解析端点
+            <br>• <b>v3.1.2</b> (2026-04-xx) - 批量解析优化、GPU温度监控
+            <br>• <b>v3.1.1</b> (2026-04-xx) - 初始版本
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-title">🖥 系统能力评估说明</div>
+          <div class="card-subtitle" style="line-height:1.8">
+            <b>Full</b>: 完整功能 - Miniconda、MinerU环境、PyTorch、GPU、所有模型齐全
+            <br><b>Capable</b>: 可用 - MinerU环境+模型可用，GPU可能受限
+            <br><b>Limited</b>: 有限 - 仅部分组件可用，Pipeline模式可工作
+            <br><b>Basic</b>: 基础 - 仅Miniconda可用，需要完成安装向导
+          </div>
+        </div>
+      </div>
     </div>
+
     <div class="statusbar">
       <div class="statusbar-left">
         <span><span class="status-dot ok" id="statusDot"></span><span id="statusText">就绪</span></span>
@@ -232,7 +410,7 @@ tr:hover td { background: var(--surface); }
         <span id="modelStatus">模型: 检测中...</span>
         <span id="statusProgress" style="display:none;flex:1;max-width:200px;height:6px;background:var(--overlay);border-radius:3px;overflow:hidden"><div id="statusProgressFill" style="height:100%;background:var(--accent);width:0%;transition:width 0.3s"></div></span>
       </div>
-      <span id="versionInfo">MinerU Desktop v3.1.4</span>
+      <span id="versionInfo">MinerU Desktop v3.2.0</span>
     </div>
   </div>
 </div>
@@ -262,7 +440,8 @@ let currentPage = 'dashboard';
 let references = [];
 let _pagesInited = {};
 let _parseMode = 'zotero';
-let _dbLoaded = false;
+let _capabilityLevel = 'basic';
+let _envReady = false;
 
 function initWS() {
   try { ws = new WebSocket(`ws://127.0.0.1:${API.base.split(':').pop()}/ws/logs`);
@@ -309,11 +488,10 @@ async function refreshStatus() {
       const temp = gpu.temperature || 0;
       let cl = 'normal'; if (temp > 70) cl = 'hot'; else if (temp > 55) cl = 'warm';
       gpuEl.innerHTML = `GPU: ${gpu.gpu_name.substring(0,20)} | ${gpu.vram_mb}MB | <span class="gpu-temp ${cl}">${temp}°C</span>`;
-    } else { gpuEl.innerHTML = '<span style="color:#dc2626">⚠ 未检测到 NVIDIA 显卡</span>'; }
+    } else { gpuEl.innerHTML = '<span style="color:#dc2626">⚠ 无显卡</span>'; }
     const models = q.models;
     document.getElementById('modelStatus').innerHTML = `模型: ${(models.pipeline&&models.vlm) ? '<span style="color:#16a34a">齐全</span>' : '<span style="color:#d97706">缺失</span>'}`;
 
-    // Parse progress in status bar
     const sp = document.getElementById('statusProgress');
     const sf = document.getElementById('statusProgressFill');
     if (q.parse_running) {
@@ -323,23 +501,28 @@ async function refreshStatus() {
         const pct = ps.progress.total > 0 ? Math.round(ps.progress.current / ps.progress.total * 100) : 0;
         sf.style.width = pct + '%';
         if (ps.paused) updateStatus(`⏸ 散热中 ${ps.progress.current}/${ps.progress.total}`, 'warn');
-        else updateStatus(`解析中 ${ps.progress.current}/${ps.progress.total} ${ps.progress.current_file || ''}`, 'ok');
+        else updateStatus(`解析中 ${ps.progress.current}/${ps.progress.total}`, 'ok');
       } catch(e) { updateStatus('解析中...', 'ok'); }
     } else {
       sp.style.display = 'none'; sf.style.width = '0%';
       if (q.setup_running) updateStatus('安装中...', 'warn');
-      else updateStatus('就绪', 'ok');
+      else updateStatus(_envReady ? '就绪' : '请完成环境安装', 'warn');
     }
-    // Update dashboard cards if visible
     if (q.gpu) updateGPUCard(q.gpu);
     if (q.models) updateModelCard(q.models);
   } catch(e) { updateStatus('后端未连接', 'err'); }
 }
 
-// ═══════════ PAGE NAVIGATION (preloaded DOM) ═══════════
+// ═══════════ PAGE NAVIGATION ═══════════
 function navTo(page) {
+  // 检查页面是否可用
+  if (page !== 'dashboard' && page !== 'about' && !_envReady) {
+    updateStatus('请先完成环境安装', 'warn');
+    return;
+  }
+  
   document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
-  const nav = document.querySelector(`[data-page="${page}"]`);
+  const nav = document.getElementById('nav-' + page);
   if (nav) nav.classList.add('active');
 
   document.querySelectorAll('.page').forEach(p => p.classList.add('hidden'));
@@ -347,40 +530,22 @@ function navTo(page) {
   if (pg) pg.classList.remove('hidden');
 
   currentPage = page;
-  // lazy-init once
   if (!_pagesInited[page]) { _pagesInited[page] = true; initPage(page); }
 }
 
 function escHtml(s) { return (s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
 
-// ═══════════ PAGE INIT (one-time) ═══════════
+// ═══════════ PAGE INIT ═══════════
 function initPage(page) {
   if (page === 'dashboard') initDashboard();
-  else if (page === 'setup') initSetup();
-  else if (page === 'settings') loadSettings();
+  else if (page === 'parse') loadSettings();
+  else if (page === 'word') loadSettings();
 }
 
 async function initDashboard() {
-  try {
-    const q = await API.get('/api/quick');
-    updateGPUCard(q.gpu);
-    updateModelCard(q.models);
-  } catch(e) {}
-  try {
-    const cap = await API.get('/api/capability');
-    let clr = 'var(--green)';
-    if (cap.level === 'basic') clr = 'var(--dim)';
-    else if (cap.level === 'limited') clr = 'var(--yellow)';
-    else if (cap.level === 'capable') clr = 'var(--accent)';
-    document.getElementById('capabilityCard').style.borderLeftColor = clr;
-    document.getElementById('capabilityText').textContent = cap.recommendation;
-    const title = document.querySelector('#capabilityCard .card-title');
-    if (title) {
-      title.textContent = (cap.has_nvidia ? (cap.vlm_available ? '✅' : '⚠️') : '❌') + ' 系统能力评估';
-    }
-  } catch(e) {
-    document.getElementById('capabilityText').textContent = '无法评估系统能力';
-  }
+  await checkCapability();
+  await loadSettings();
+  // 延迟获取详细GPU信息
   setTimeout(async () => {
     try {
       const deep = await API.get('/api/gpu/deep');
@@ -389,7 +554,60 @@ async function initDashboard() {
       updateGPUCard(gpu);
     } catch(e) {}
   }, 1000);
-  _dbLoaded = true;
+}
+
+async function checkCapability() {
+  try {
+    const q = await API.get('/api/quick');
+    updateGPUCard(q.gpu);
+    updateModelCard(q.models);
+  } catch(e) {}
+  
+  try {
+    const cap = await API.get('/api/capability');
+    _capabilityLevel = cap.level;
+    
+    let clr = 'var(--green)';
+    if (cap.level === 'basic') clr = 'var(--dim)';
+    else if (cap.level === 'limited') clr = 'var(--yellow)';
+    else if (cap.level === 'capable') clr = 'var(--accent)';
+    else if (cap.level === 'full') clr = 'var(--green)';
+    
+    document.getElementById('capabilityCard').style.borderLeftColor = clr;
+    document.getElementById('capabilityText').textContent = cap.recommendation;
+    
+    const title = document.getElementById('capabilityTitle');
+    if (title) {
+      title.textContent = (cap.has_nvidia ? (cap.vlm_available ? '✅' : '⚠️') : '❌') + ' 系统能力评估';
+    }
+    
+    // 根据能力级别决定是否启用功能
+    _envReady = (cap.level === 'full' || cap.level === 'capable' || cap.level === 'limited');
+    
+    // 控制导航项可用性
+    document.getElementById('nav-parse').disabled = !_envReady;
+    document.getElementById('nav-word').disabled = !_envReady;
+    
+    // 显示/隐藏安装向导
+    const setupSection = document.getElementById('setupSection');
+    const settingsSection = document.getElementById('settingsSection');
+    
+    if (_envReady) {
+      setupSection.classList.add('hidden');
+      settingsSection.classList.remove('hidden');
+      updateStatus('就绪', 'ok');
+    } else {
+      setupSection.classList.remove('hidden');
+      settingsSection.classList.add('hidden');
+      updateStatus('请完成环境安装', 'warn');
+      // 加载安装向导
+      initSetup();
+    }
+    
+  } catch(e) {
+    document.getElementById('capabilityText').textContent = '无法评估系统能力';
+    updateStatus('后端未连接', 'err');
+  }
 }
 
 function updateGPUCard(gpu) {
@@ -405,7 +623,7 @@ function updateModelCard(models) {
   el.innerHTML = `Pipeline: ${models.pipeline ? '✓ 已安装' : '✗ 未安装'}<br>VLM: ${models.vlm ? '✓ 已安装' : '✗ 未安装'}`;
 }
 
-// ═══════════ WORKFLOW A ═══════════
+// ═══════════ WORKFLOW A (批量解析) ═══════════
 async function importZoteroJSON() {
   try {
     const result = await electronAPI.openFile({ filters: [{ name: 'JSON Files', extensions: ['json'] }], properties: ['openFile'] });
@@ -536,7 +754,7 @@ async function cleanupMemory() {
   } catch(e) { addLog('清理失败: ' + e.message); }
 }
 
-// ═══════════ WORKFLOW B ═══════════
+// ═══════════ WORKFLOW B (生成 Word) ═══════════
 async function pickMDFile() {
   const r = await electronAPI.openFile({ filters: [{ name: 'Markdown', extensions: ['md'] }], properties: ['openFile'] });
   if (!r.canceled && r.filePaths.length) document.getElementById('mdPath').value = r.filePaths[0];
@@ -566,7 +784,6 @@ async function initSetup() {
       html += '<div class="step-item' + (step.status === 'done' ? ' done' : '') + '" id="step-' + step.id + '"><div class="step-num">' + (step.status === 'done' ? '✓' : i + 1) + '</div><div class="step-info" style="flex:1"><div class="step-name">' + escHtml(step.name) + '</div><div class="step-desc" style="margin-top:4px;line-height:1.5">' + escHtml(step.description) + '</div><div style="display:flex;gap:16px;margin-top:6px;font-size:11px;color:var(--dim)"><span>📁 安装位置: ' + escHtml(step.location) + '</span><span>💾 磁盘: ' + escHtml(step.size) + '</span></div></div><button class="btn ' + (step.status === 'done' ? 'success' : 'primary') + '" id="btn-' + step.id + '" onclick="executeStep(\'' + step.id + '\')" ' + (step.status === 'done' ? 'disabled' : '') + '>' + (step.status === 'done' ? '✓ 已完成' : escHtml(step.action_text)) + '</button></div>';
     });
     document.getElementById('setupSteps').innerHTML = html;
-    _pagesInited['setup'] = false; // allow re-init
   } catch(e) { console.error(e); }
 }
 
@@ -575,7 +792,10 @@ async function executeStep(stepId) {
   if (btn) { btn.disabled = true; btn.textContent = '执行中...'; }
   document.getElementById('setupProgressText').textContent = '执行中...';
   try { await API.post('/api/setup/step/' + stepId); } catch(e) { addLog('执行失败: ' + e.message); }
-  setTimeout(() => initSetup(), 2000);
+  setTimeout(() => {
+    initSetup();
+    checkCapability();
+  }, 2000);
 }
 
 // ═══════════ SETTINGS ═══════════
@@ -634,16 +854,25 @@ async function waitBackend(maxSec) {
 
 async function init() {
   await API.init();
+  
+  // 绑定导航
   document.querySelectorAll('.nav-item').forEach(item => {
-    item.addEventListener('click', () => navTo(item.dataset.page));
+    item.addEventListener('click', () => {
+      const page = item.dataset.page;
+      if (item.disabled && page !== 'dashboard' && page !== 'about') {
+        updateStatus('请先完成环境安装', 'warn');
+        return;
+      }
+      navTo(page);
+    });
   });
+  
   navTo('dashboard');
   updateStatus('后端启动中...', 'warn');
 
   const ok = await waitBackend(18);
   initWS();
   if (ok) {
-    updateStatus('就绪', 'ok');
     initDashboard();
     _pagesInited['dashboard'] = true;
   } else {

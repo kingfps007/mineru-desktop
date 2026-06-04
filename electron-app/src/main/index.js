@@ -70,7 +70,7 @@ function createWindow() {
     height: 820,
     minWidth: 900,
     minHeight: 640,
-    title: 'MinerU Desktop v3.1.4',
+    title: 'MinerU Desktop v3.2.0',
     backgroundColor: '#ffffff',
     webPreferences: {
       preload: path.join(__dirname, '..', 'preload', 'index.js'),
