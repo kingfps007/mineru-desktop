@@ -1,0 +1,55 @@
+# Build output
+electron-app/dist/
+electron-app/dist_*/
+electron-app/old_dist*/
+electron-app/_restore_*/
+electron-app/node_modules/
+
+# MinerU parse output (huge, regeneratable)
+output/
+parsed_papers/
+parsed_papers_vlm/
+parsed_papers_html/
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.env
+
+# Binaries
+*.exe
+MinerU_Desktop_*.exe
+
+# IDE / tools
+.trae/
+
+# Backups
+backups/
+
+# SENSITIVE: personal paths / credentials
+335篇全部文献导出的条目.json
+references.bib
+archive/
+PROJECT_TIMELINE.md
+scripts/MINERU_SETUP_GUIDE.md
+scripts/REQUIREMENTS.md
+scripts/build_docx.py
+scripts/run_mineru_batch.py
+scripts/batch_vlm_parse.py
+scripts/_classify.py
+scripts/_extract_data.py
+scripts/_plot_charts.py
+scripts/_remap_citations.py
+scripts/plot_all_charts.py
+scripts/unparsed_queue.json
+scripts/vlm_parse_log.txt
+scripts/vlm_parse_progress.json
+manuscript/
+data/
+figures/
+
+# Misc
+venv/
+Thumbs.db
+Desktop.ini
