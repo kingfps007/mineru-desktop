@@ -49,20 +49,20 @@ state = {
 # ── GPU / CPU / Process Cleanup ──
 def cleanup_memory():
     released = []
-    # 1. Kill zombie mineru child processes
+    # 1. Kill zombie mineru child processes (Windows: taskkill /F, NOT SIGTERM)
     killed = 0
     try:
-        import signal as _signal
-        r = subprocess.run(['tasklist', '/fo', 'csv', '/nh'], capture_output=True, text=True)
+        r = subprocess.run(['tasklist', '/fo', 'csv', '/nh'], capture_output=True, text=True, timeout=5)
         for line in r.stdout.splitlines():
             low = line.lower()
-            if 'mineru-api' in low or ('uvicorn' in low and 'mineru' not in low):
+            if 'mineru-api' in low or 'mineru' in low and '.exe' in low:
                 pid_str = line.split(',')[1].strip('"')
-                try:
-                    os.kill(int(pid_str), _signal.SIGTERM)
+                if pid_str.isdigit():
+                    # Windows 强制终止（taskkill 比 os.kill 可靠，避免卡死）
+                    subprocess.run(['taskkill', '/F', '/PID', pid_str], capture_output=True, timeout=3)
                     killed += 1
-                except: pass
-    except: pass
+    except Exception as e:
+        sync_log(f"⚠ 清理进程时出错: {e}")
     if killed: released.append(f"终止 {killed} 个僵尸进程")
 
     # 2. Python GC
@@ -71,15 +71,18 @@ def cleanup_memory():
     after = _get_mem_mb()
     if before - after > 10: released.append(f"释放内存 {before - after:.0f} MB")
 
-    # 3. GPU VRAM cleanup via torch (dynamic path from mineru env)
+    # 3. GPU VRAM cleanup via torch (动态路径，超时保护)
     try:
         env = cached_detect_mineru_env()
-        python_exe = env["python"] if env else "python"
-        r = subprocess.run(
+        python_exe = env["python"] if env and env.get("python") else "python"
+        subprocess.run(
             [python_exe, "-c",
              "import gc,torch; gc.collect(); torch.cuda.empty_cache(); print(torch.cuda.memory_allocated()//1024**2)"],
-            capture_output=True, text=True, timeout=15)
-    except: pass
+            capture_output=True, text=True, timeout=10)
+    except subprocess.TimeoutExpired:
+        pass
+    except Exception:
+        pass
 
     if not released: released.append("内存已是最优状态")
     msg = "🧹 " + " | ".join(released)
@@ -280,13 +283,29 @@ def capability_assessment():
     has_nvidia = gpu["has_nvidia"]
     vram_gb = gpu["vram_mb"] / 1024 if gpu["vram_mb"] else 0
 
+    # 综合评估：必须 conda + mineru环境 + 模型齐全 才算环境就绪
+    has_conda = bool(conda)
+    has_mineru = env is not None
+    has_models = models.get("pipeline", False) and models.get("vlm", False)
+
+    env_ready = has_conda and has_mineru and has_models
+
     modes = []
     if env and models["pipeline"]: modes.append("pipeline")
     if env and models["vlm"] and has_nvidia: modes.append("vlm")
 
-    if not has_nvidia:
-        recommendation = "未检测到 NVIDIA 显卡。建议使用 Pipeline (传统规则) 模式。"
+    # level 决定 UI 显示和导航启用：先看 env_ready
+    if not env_ready:
+        # 环境未就绪，强制 basic，提示走安装向导
+        missing = []
+        if not has_conda: missing.append("Miniconda")
+        if not has_mineru: missing.append("MinerU 环境")
+        if not has_models: missing.append("模型")
+        recommendation = f"环境未就绪，缺少: {', '.join(missing)}。请先完成安装向导。"
         level = "basic"
+    elif not has_nvidia:
+        recommendation = "未检测到 NVIDIA 显卡。建议使用 Pipeline (传统规则) 模式。"
+        level = "limited"
     elif vram_gb < 4:
         recommendation = f"检测到 {gpu['gpu_name']} ({vram_gb:.1f}GB 显存)。显存不足以运行 VLM 模型，仅支持 Pipeline 模式。"
         level = "limited"
@@ -302,7 +321,8 @@ def capability_assessment():
         "available_modes": modes, "pipeline_available": "pipeline" in modes,
         "vlm_available": "vlm" in modes,
         "level": level, "recommendation": recommendation,
-        "conda_installed": bool(conda), "mineru_installed": env is not None,
+        "conda_installed": has_conda, "mineru_installed": has_mineru,
+        "models_ready": has_models, "env_ready": env_ready,
     }
 
 def get_gpu_temperature():
@@ -769,12 +789,12 @@ class ConfigData(BaseModel):
 
 @app.get("/api/health")
 async def health():
-    return {"status": "ok", "version": "3.2.0"}
+    return {"status": "ok", "version": "3.2.1"}
 
 @app.get("/api/quick")
 async def quick_status():
     return {
-        "status": "ok", "version": "3.2.0",
+        "status": "ok", "version": "3.2.1",
         "gpu": detect_gpu_fast(), "models": detect_models_fast(),
         "conda": cached_find_conda(), "mineru": cached_detect_mineru_env(),
         "parse_running": state["parse_running"], "setup_running": state["setup_running"],
