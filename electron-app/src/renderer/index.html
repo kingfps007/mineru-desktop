@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>MinerU Desktop v3.2.2</title>
+<title>MinerU Desktop v3.2.3</title>
 <style>
 :root {
   --bg: #ffffff; --surface: #f5f7fa; --overlay: #e8ecf1;
@@ -429,11 +429,12 @@ tr:hover td { background: var(--surface); }
       <!-- 关于页面 -->
       <div class="page hidden" id="pg-about">
         <div class="card">
-          <div class="card-title">ℹ 关于 MinerU Desktop v3.2.2</div>
+          <div class="card-title">ℹ 关于 MinerU Desktop v3.2.3</div>
           <div class="card-subtitle" style="line-height:1.8">
             MinerU Desktop 是一款基于 MinerU 的 PDF 解析工具，支持批量解析和 Word 文档生成。
             <br><br><b>版本更新日志</b>:
-            <br>• <b>v3.2.2</b> (2026-06-04) - 修复 conda 显示 bug、安装向导直接集成在主页、解析页支持云端 API/云端 VLM 模型、移除复杂显隐改为前置条件禁用
+            <br>• <b>v3.2.3</b> (2026-06-04) - 主进程重写：等待后端端口就绪再创建窗口、taskkill /F /T 杀进程树、旧实例清理
+            <br>• <b>v3.2.2</b> - 修复 conda 显示 bug、配置向导集成到仪表盘、增加云端 API/VLM 解析
             <br>• <b>v3.2.1</b> - 修复清理内存卡死、环境检查综合判断
             <br>• <b>v3.2.0</b> - UI 重构：集成仪表盘与安装向导
             <br>• <b>v3.1.4</b> - 内存清理按钮、取消后自动恢复
@@ -452,7 +453,7 @@ tr:hover td { background: var(--surface); }
         <span id="modelStatus">模型: 检测中...</span>
         <span id="statusProgress" style="display:none;flex:1;max-width:200px;height:6px;background:var(--overlay);border-radius:3px;overflow:hidden"><div id="statusProgressFill" style="height:100%;background:var(--accent);width:0%;transition:width 0.3s"></div></span>
       </div>
-      <span id="versionInfo">MinerU Desktop v3.2.2</span>
+      <span id="versionInfo">MinerU Desktop v3.2.3</span>
     </div>
   </div>
 </div>
