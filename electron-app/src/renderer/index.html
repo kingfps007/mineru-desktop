@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>MinerU Desktop v3.3.0</title>
+<title>MinerU Desktop v3.3.1</title>
 <style>
 :root {
   --bg: #ffffff; --surface: #f5f7fa; --overlay: #e8ecf1;
@@ -203,7 +203,7 @@ tr:hover td { background: var(--surface); }
 
 <div class="titlebar">
   <div class="titlebar-left">
-    <span class="titlebar-logo">⬡ MinerU Desktop<span> v3.3.0</span></span>
+    <span class="titlebar-logo">⬡ MinerU Desktop<span> v3.3.1</span></span>
   </div>
   <div class="titlebar-btns">
     <button class="titlebar-btn" onclick="electronAPI.minimize()">─</button>
@@ -390,11 +390,12 @@ tr:hover td { background: var(--surface); }
       <!-- 关于页面 -->
       <div class="page hidden" id="pg-about">
         <div class="card">
-          <div class="card-title">ℹ 关于 MinerU Desktop v3.3.0</div>
+          <div class="card-title">ℹ 关于 MinerU Desktop v3.3.1</div>
           <div class="card-subtitle" style="line-height:1.8">
             MinerU Desktop 是一款基于 MinerU 的 PDF 解析工具，支持批量解析和 Word 文档生成。
             <br><br><b>版本更新日志</b>:
-            <br>• <b>v3.3.0</b> (2026-06-05) - 🎨 仪表盘精简：环境总览+安装向导 2 卡片（合并系统能力/环境检查/GPU/模型/快捷入口），打开自动扫描，清理内存全自动
+            <br>• <b>v3.3.1</b> (2026-06-05) - 🔧 修复 Token 验证 404（改用 /api/v4/extract/task）；环境总览加 GPU/显存建议；云端结果字段适配 full_zip_url
+            <br>• <b>v3.3.0</b> (2026-06-05) - 🎨 仪表盘精简为 2 卡片，打开自动扫描，清理内存全自动
             <br>• <b>v3.2.9</b> (2026-06-05) - 🧹 解析前后自动清理 GPU 显存
             <br>• <b>v3.2.8</b> (2026-06-05) - 🐛 修复实际 BATCH_SIZE 为 1（get_batch_size 默认值错误）
             <br>• <b>v3.2.7</b> (2026-06-05) - 🐛 修复中文文件名含尾部空格/特殊字符
@@ -427,7 +428,7 @@ tr:hover td { background: var(--surface); }
         <span id="modelStatus">模型: 检测中...</span>
         <span id="statusProgress" style="display:none;flex:1;max-width:200px;height:6px;background:var(--overlay);border-radius:3px;overflow:hidden"><div id="statusProgressFill" style="height:100%;background:var(--accent);width:0%;transition:width 0.3s"></div></span>
       </div>
-      <span id="versionInfo">MinerU Desktop v3.3.0</span>
+      <span id="versionInfo">MinerU Desktop v3.3.1</span>
     </div>
   </div>
 </div>
@@ -597,11 +598,19 @@ function updateEnvCheckList(conda, mineru, models, gpu) {
     { ok: vlmOk, label: 'VLM 模型', status: vlmOk ? '✓ 已安装' : '✗ 未安装' },
     { ok: hasNvidia && hasVram, label: 'GPU 加速', status: hasNvidia ? (hasVram ? `${gpu.gpu_name} (${vramGB.toFixed(1)}GB)` : `${gpu.gpu_name} 显存不足`) : '未检测到 NVIDIA 显卡' },
   ];
+  // GPU/VRAM 建议
+  let tips = [];
+  if (!hasNvidia) tips.push('⚠ 无 NVIDIA 显卡 → 本地解析仅可用 pipeline（CPU），不可用 VLM；建议使用云端 API');
+  else if (vramGB < 4) tips.push('⚠ 显存 < 4GB → 不推荐 VLM（需 ≥4GB），建议 pipeline 或云端 API');
+  else if (vramGB < 8) tips.push('ℹ 显存 4-8GB → VLM 可用但可能 OOM，建议每 50 篇清理一次');
+  if (!hasNvidia || vramGB < 4) {
+    if (!vlmOk) tips.push('💡 VLM 模型无需下载（显存不足），安装 pipeline 即可本地解析');
+  }
   list.innerHTML = items.map(item => {
     const icon = item.ok ? '✓' : '✗';
     const cls = item.ok ? 'ok' : 'err';
     return `<div class="check-row"><span class="check-icon ${cls}">${icon}</span><span class="check-text"><b>${item.label}</b>: ${escHtml(item.status)}</span></div>`;
-  }).join('');
+  }).join('') + (tips.length ? '<div style="margin-top:8px;padding:8px 12px;background:var(--overlay);border-radius:6px;font-size:12px;line-height:1.8;color:var(--dim)">' + tips.map(t => escHtml(t)).join('<br>') + '</div>' : '');
 }
 
 function updateGPUDetail(gpu) {

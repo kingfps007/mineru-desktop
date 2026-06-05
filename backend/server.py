@@ -24,7 +24,7 @@ DEFAULT_PORT = 18766
 MAX_PARSE_TIMEOUT = 600
 GPU_TEMP_PAUSE_THRESHOLD = 70
 GPU_TEMP_PAUSE_SECONDS = 30
-# v3.3.0 回退到 3.1.2 策略：BATCH_SIZE=10 已被用户在 300+ 篇验证（只崩 1 次），
+# v3.3.1 回退到 3.1.2 策略：BATCH_SIZE=10 已被用户在 300+ 篇验证（只崩 1 次），
 # 我 v3.2.5 自作主张改成 1 是错的——每篇重新加载模型多花 5-10s。
 # 此处保留 get_batch_size() 供用户在「本地配置」微调（仅显存 ≥16GB 可上调到 3-5）。
 BATCH_SIZE = 10
@@ -43,7 +43,7 @@ def get_batch_size():
 
 def sanitize_name(name):
     """清洗文件名：去掉首尾空格、换行符和 Windows 非法字符。
-    v3.3.0 修复：中文文件名+尾部空格导致 mineru 内部 os.makedirs 失败。
+    v3.3.1 修复：中文文件名+尾部空格导致 mineru 内部 os.makedirs 失败。
     """
     name = name.strip()
     for ch in '<>:"/\\|?*':
@@ -73,7 +73,7 @@ state = {
 
 # ── GPU / CPU / Process Cleanup ──
 def cleanup_memory():
-    """释放显存 + 清理残留进程（v3.3.0 回退到 3.1.2 风格）
+    """释放显存 + 清理残留进程（v3.3.1 回退到 3.1.2 风格）
 
     v3.2.5 教训：
     1. **不要 `taskkill /F /T /IM mineru.exe`** —— 这会**杀当前正在解析的 mineru.exe**，
@@ -842,12 +842,12 @@ class ConfigData(BaseModel):
 
 @app.get("/api/health")
 async def health():
-    return {"status": "ok", "version": "3.3.0"}
+    return {"status": "ok", "version": "3.3.1"}
 
 @app.get("/api/quick")
 async def quick_status():
     return {
-        "status": "ok", "version": "3.3.0",
+        "status": "ok", "version": "3.3.1",
         "gpu": detect_gpu_fast(), "models": detect_models_fast(),
         "conda": cached_find_conda(), "mineru": cached_detect_mineru_env(),
         "parse_running": state["parse_running"], "setup_running": state["setup_running"],
@@ -897,20 +897,26 @@ async def validate_api_token(data: dict):
     token = data.get("token", "").strip()
     if not token: return {"valid": False, "message": "请输入 API Token"}
     try:
-        req = urllib.request.Request("https://mineru.net/api/v4/api-usage",
+        req = urllib.request.Request("https://mineru.net/api/v4/extract/task",
+            data=json.dumps({"url": "https://example.com/test.pdf"}).encode(),
             headers={"Authorization": f"Bearer {token}", "Content-Type": "application/json"})
         resp = urllib.request.urlopen(req, timeout=10)
         body = json.loads(resp.read().decode())
-        return {"valid": True, "message": "Token 有效", "data": body}
+        if body.get("code") == 0:
+            return {"valid": True, "message": "Token 有效", "data": body.get("data", {})}
+        else:
+            return {"valid": False, "message": body.get("msg", "验证失败")}
     except urllib.error.HTTPError as e:
         code = e.code
-        if code == 401: return {"valid": False, "message": "Token 无效"}
-        if code == 403: return {"valid": False, "message": "Token 已过期或无权限"}
-        return {"valid": False, "message": f"API 错误 (HTTP {code})"}
-    except urllib.error.URLError as e:
+        if code == 401: return {"valid": False, "message": "Token 无效或已过期"}
+        if code == 403: return {"valid": False, "message": "Token 无权限"}
+        if code == 429: return {"valid": True, "message": "Token 有效（但已达配额限制）"}
+        try:
+            err_body = json.loads(e.read().decode())
+            return {"valid": False, "message": err_body.get("msg", f"API 错误 (HTTP {code})")}
+        except: return {"valid": False, "message": f"API 错误 (HTTP {code})"}
+    except urllib.error.URLError:
         return {"valid": False, "message": "无法连接 MinerU 服务，请检查网络"}
-    except json.JSONDecodeError:
-        return {"valid": False, "message": "API 返回格式异常"}
     except Exception as e:
         return {"valid": False, "message": f"验证失败: {str(e)[:60]}"}
 
@@ -1120,7 +1126,7 @@ def _cloud_parse_core(items, output_dir, model_version, api_token, lang):
                     er = extract[0]
                     state_msg = er.get("state", "")
                     if state_msg == "done":
-                        zip_url = er.get("full_md_link") or er.get("zip_url")
+                        zip_url = er.get("full_zip_url") or er.get("full_md_link") or er.get("zip_url")
                         break
                     elif state_msg == "failed":
                         sync_log(f"  ✗ 解析失败: {er.get('err_msg', '未知')}")
@@ -1397,7 +1403,7 @@ async def start_parse(req: ParseRequest):
 
 @app.post("/api/parse/cancel")
 async def cancel_parse():
-    """v3.3.0 回退到 3.1.2 优雅风格：terminate → wait 2s → kill
+    """v3.3.1 回退到 3.1.2 优雅风格：terminate → wait 2s → kill
     v3.2.5 用的 taskkill /F /T /PID 过于激进，会让 worker 丢数据、关文件未刷盘。
     3.1.2 的 3 步流程给 worker 2s 优雅退出时间，被用户 300+ 篇验证稳定。
     """
