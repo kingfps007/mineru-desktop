@@ -53,3 +53,11 @@ figures/
 venv/
 Thumbs.db
 Desktop.ini
+
+# Pipeline outputs / debug artifacts (v3.3.8)
+pipeline/
+verify_asar/
+verify_asar337/
+verify_window_icon.bmp
+verify_window_icon.png
+electron-app/build_v*.log

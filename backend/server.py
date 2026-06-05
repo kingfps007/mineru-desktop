@@ -17,6 +17,17 @@ from pydantic import BaseModel
 import urllib.request, urllib.error
 import uvicorn
 
+# ── No-proxy opener for mineru.net ──
+# 用户系统环境变量里的 HTTPS_PROXY（如 127.0.0.1:7897）会被 urllib 自动使用，
+# 走代理访问 mineru.net 时会被中间设备拦截返回 "regional regulations"。
+# 创建一个空 ProxyHandler 的 opener 强制走直连，不影响系统其他程序的代理。
+_NO_PROXY_OPENER = urllib.request.build_opener(urllib.request.ProxyHandler({}))
+
+def _no_proxy_urlopen(req, timeout=None):
+    """强制直连的 urlopen — 不走系统 HTTPS_PROXY。
+    用户电脑上 git push 等用代理，但访问 mineru.net 必须直连（代理会被中间设备拦截）。"""
+    return _NO_PROXY_OPENER.open(req, timeout=timeout)
+
 # ── Constants ──
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 CONFIG_PATH = Path.home() / "mineru_desktop_config.json"
@@ -1012,12 +1023,12 @@ class ConfigData(BaseModel):
 
 @app.get("/api/health")
 async def health():
-    return {"status": "ok", "version": "3.3.7"}
+    return {"status": "ok", "version": "3.3.8"}
 
 @app.get("/api/quick")
 async def quick_status():
     return {
-        "status": "ok", "version": "3.3.7",
+        "status": "ok", "version": "3.3.8",
         "gpu": detect_gpu_fast(), "models": detect_models_fast(),
         "conda": cached_find_conda(), "mineru": cached_detect_mineru_env(),
         "cpu": detect_cpu_info(), "ram_total_gb": detect_system_ram(),
@@ -1076,7 +1087,8 @@ async def validate_api_token(data: dict):
         req = urllib.request.Request("https://mineru.net/api/v4/extract/task",
             data=json.dumps({"url": "https://example.com/test.pdf"}).encode(),
             headers={"Authorization": f"Bearer {token}", "Content-Type": "application/json"})
-        resp = urllib.request.urlopen(req, timeout=10)
+        # 强制直连（不走系统代理），避免 OpenXLab/MinerU 平台被代理中间设备拦截
+        resp = _no_proxy_urlopen(req, timeout=10)
         body = json.loads(resp.read().decode())
         if body.get("code") == 0:
             return {"valid": True, "message": "Token 有效", "data": body.get("data", {})}
@@ -1282,7 +1294,7 @@ def _cloud_parse_core(items, output_dir, model_version, api_token, lang):
                 data=req_body, method="POST",
                 headers={"Authorization": f"Bearer {api_token}", "Content-Type": "application/json"}
             )
-            with urllib.request.urlopen(req, timeout=30) as resp:
+            with _no_proxy_urlopen(req, timeout=30) as resp:
                 rdata = json.loads(resp.read().decode("utf-8"))
             if rdata.get("code") != 0:
                 sync_log(f"  ✗ 申请上传链接失败: {rdata.get('msg', '未知')}")
@@ -1300,7 +1312,7 @@ def _cloud_parse_core(items, output_dir, model_version, api_token, lang):
                 file_data = f.read()
             upload_req = urllib.request.Request(upload_url, data=file_data, method="PUT",
                                                 headers={"Content-Type": content_type_map.get(file_ext, "application/octet-stream")})
-            urllib.request.urlopen(upload_req, timeout=600).read()
+            _no_proxy_urlopen(upload_req, timeout=600).read()
             sync_log(f"  ✓ 上传成功")
 
             # 3. 轮询查询结果
@@ -1313,7 +1325,7 @@ def _cloud_parse_core(items, output_dir, model_version, api_token, lang):
                 time.sleep(5); polled += 5
                 qurl = f"{api_url}/extract-results/batch/{batch_id}"
                 qreq = urllib.request.Request(qurl, headers={"Authorization": f"Bearer {api_token}"})
-                with urllib.request.urlopen(qreq, timeout=30) as qresp:
+                with _no_proxy_urlopen(qreq, timeout=30) as qresp:
                     qdata = json.loads(qresp.read().decode("utf-8"))
                 if qdata.get("code") != 0:
                     sync_log(f"  ⚠ 轮询异常: {qdata.get('msg', '')}")
@@ -1337,7 +1349,7 @@ def _cloud_parse_core(items, output_dir, model_version, api_token, lang):
 
             # 4. 下载并解压
             state["parse_progress"]["file_progress"] = 95
-            with urllib.request.urlopen(zip_url, timeout=600) as zresp:
+            with _no_proxy_urlopen(zip_url, timeout=600) as zresp:
                 zip_bytes = zresp.read()
             dst = Path(output_dir) / it["name"]
             dst.mkdir(parents=True, exist_ok=True)
@@ -1404,7 +1416,7 @@ def _agent_parse_core(items, output_dir, lang):
                 api_url, data=body, method="POST",
                 headers={"Content-Type": f"multipart/form-data; boundary={boundary}"}
             )
-            with urllib.request.urlopen(req, timeout=120) as resp:
+            with _no_proxy_urlopen(req, timeout=120) as resp:
                 rdata = json.loads(resp.read().decode("utf-8"))
 
             if rdata.get("code") != 0:
@@ -1420,7 +1432,7 @@ def _agent_parse_core(items, output_dir, lang):
             if md_url:
                 # 直接返回结果
                 state["parse_progress"]["file_progress"] = 90
-                with urllib.request.urlopen(md_url, timeout=300) as mresp:
+                with _no_proxy_urlopen(md_url, timeout=300) as mresp:
                     md_bytes = mresp.read()
                 dst = Path(output_dir) / it["name"]
                 dst.mkdir(parents=True, exist_ok=True)
@@ -1441,13 +1453,13 @@ def _agent_parse_core(items, output_dir, lang):
                     time.sleep(5); polled += 5
                     qurl = f"{api_url.replace('/file', '')}/tasks/{task_id}"
                     qreq = urllib.request.Request(qurl)
-                    with urllib.request.urlopen(qreq, timeout=30) as qresp:
+                    with _no_proxy_urlopen(qreq, timeout=30) as qresp:
                         qdata = json.loads(qresp.read().decode("utf-8"))
                     st = qdata.get("data", {}).get("state", "")
                     if st == "done":
                         md_url = qdata["data"].get("markdown_url") or qdata["data"].get("content_url")
                         if md_url:
-                            with urllib.request.urlopen(md_url, timeout=300) as mresp:
+                            with _no_proxy_urlopen(md_url, timeout=300) as mresp:
                                 md_bytes = mresp.read()
                             dst = Path(output_dir) / it["name"]
                             dst.mkdir(parents=True, exist_ok=True)
