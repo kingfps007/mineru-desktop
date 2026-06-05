@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>MinerU Desktop v3.3.8</title>
+<title>MinerU Desktop v3.3.9</title>
 <style>
 :root {
   --bg: #ffffff; --surface: #f5f7fa; --overlay: #e8ecf1;
@@ -218,7 +218,7 @@ tr:hover td { background: var(--surface); }
 <div class="app">
   <div class="sidebar" id="sidebar">
     <button class="nav-item active" data-page="dashboard" id="nav-dashboard">
-      <span class="icon">📊</span> 仪表盘
+      <span class="icon">📊</span> 本地模型仪表盘
     </button>
     <button class="nav-item" data-page="parse" id="nav-parse">
       <span class="icon">📄</span> 批量解析
@@ -346,6 +346,17 @@ tr:hover td { background: var(--surface); }
               <input id="parseApiToken" type="password" placeholder="在 mineru.net/apiManage 获取">
               <button class="btn" onclick="validateApiToken()">验证</button>
             </div>
+            <!-- v3.3.9 代理设置：矿 API 按 IP 区域返回 regional regulations，勾选后用代理绕开 -->
+            <div class="input-row">
+              <label style="display:flex;align-items:center;gap:6px;cursor:pointer">
+                <input type="checkbox" id="parseApiUseProxy" onchange="saveApiProxyConfig()">
+                启用代理（访问矿 API 时使用）
+              </label>
+            </div>
+            <div class="input-row">
+              <label>代理地址</label>
+              <input id="parseApiProxyUrl" type="text" placeholder="如 http://127.0.0.1:7897（境外代理更有效）" oninput="saveApiProxyConfig()">
+            </div>
             <div class="input-row">
               <label>模型版本</label>
               <select id="cloudModel">
@@ -413,11 +424,13 @@ tr:hover td { background: var(--surface); }
       <!-- 关于页面 -->
       <div class="page hidden" id="pg-about">
         <div class="card">
-          <div class="card-title">ℹ 关于 MinerU Desktop v3.3.8</div>
+          <div class="card-title">ℹ 关于 MinerU Desktop v3.3.9</div>
           <div class="card-subtitle" style="line-height:1.8">
             MinerU Desktop 是一款基于 MinerU 的 PDF 解析工具，支持批量解析和 Word 文档生成。
             <br><br><b>版本更新日志</b>:
-            <br>• <b>v3.3.7</b> (2026-06-05) - 🔧 修复任务栏图标：icon.ico 路径加 process.resourcesPath（packaged 后在 resources/build/icon.ico）；token 验证返回详细错误（HTTP code + traceId + 后端 msg）便于诊断 "regional regulations" 等
+            <br>• <b>v3.3.9</b> (2026-06-05) - 🌐 矿 API 加代理开关：解析页精准 API 配置区可勾选「启用代理」+ 填境外代理地址，绕过「regional regulations」区域限制（v3.3.8 直连仍受限时用）；导航「仪表盘」改名为「本地模型仪表盘」（云端用户可忽略此 tab）
+            <br>• <b>v3.3.8</b> (2026-06-05) - 🌐 修复 API 验证 "regional regulations"：后端加 _NO_PROXY_OPENER 强制直连矿 API，绕过系统 HTTPS_PROXY 被中间设备拦截；titlebar 去除冗余版本号（statusbar 已显示）
+<br>• <b>v3.3.7</b> (2026-06-05) - 🔧 修复任务栏图标：icon.ico 路径加 process.resourcesPath（packaged 后在 resources/build/icon.ico）；token 验证返回详细错误（HTTP code + traceId + 后端 msg）便于诊断 "regional regulations" 等
             <br>• <b>v3.3.4</b> (2026-06-05) - 📊 状态栏 GPU 改用使用率(%)替代固定功率(W)；仪表盘 GPU 加显存带宽%与功率上限
             <br>• <b>v3.3.3</b> (2026-06-05) - 📊 仪表盘重构（系统状态+实时监控卡，删除与向导重复的检查）；监控数据用 psutil 修复精度；状态栏+仪表盘加 CPU 频率/温度
             <br>• <b>v3.3.2</b> (2026-06-05) - 📊 状态栏全宽实时监控 CPU/RAM/GPU 功率；环境总览加 CPU/RAM 评估；预警急停（RAM>95%/CPU>98% 自动暂停）
@@ -460,7 +473,7 @@ tr:hover td { background: var(--surface); }
     <span id="statusProgress" style="display:none;flex:1;max-width:200px;height:6px;background:var(--overlay);border-radius:3px;overflow:hidden"><div id="statusProgressFill" style="height:100%;background:var(--accent);width:0%;transition:width 0.3s"></div></span>
   </div>
   <div class="statusbar-right">
-    <span id="versionInfo">MinerU Desktop v3.3.8</span>
+    <span id="versionInfo">MinerU Desktop v3.3.9</span>
   </div>
 </div>
 
@@ -965,8 +978,22 @@ async function loadSettings() {
     if (document.getElementById('cfgApiToken')) {
       document.getElementById('cfgApiToken').value = _savedApiToken;
     }
+    // v3.3.9 同步代理配置
+    const useProxyEl = document.getElementById('parseApiUseProxy');
+    const proxyUrlEl = document.getElementById('parseApiProxyUrl');
+    if (useProxyEl) useProxyEl.checked = !!cfg.api_use_proxy;
+    if (proxyUrlEl) proxyUrlEl.value = cfg.api_proxy_url || '';
     updateParseBtn();
     updateDocxBtn();
+  } catch(e) {}
+}
+
+// v3.3.9 保存代理配置（实时保存，输入即存）
+async function saveApiProxyConfig() {
+  try {
+    const useProxy = document.getElementById('parseApiUseProxy')?.checked || false;
+    const proxyUrl = document.getElementById('parseApiProxyUrl')?.value || '';
+    await API.post('/api/config', { api_use_proxy: useProxy, api_proxy_url: proxyUrl });
   } catch(e) {}
 }
 
