@@ -1012,12 +1012,12 @@ class ConfigData(BaseModel):
 
 @app.get("/api/health")
 async def health():
-    return {"status": "ok", "version": "3.3.6"}
+    return {"status": "ok", "version": "3.3.7"}
 
 @app.get("/api/quick")
 async def quick_status():
     return {
-        "status": "ok", "version": "3.3.6",
+        "status": "ok", "version": "3.3.7",
         "gpu": detect_gpu_fast(), "models": detect_models_fast(),
         "conda": cached_find_conda(), "mineru": cached_detect_mineru_env(),
         "cpu": detect_cpu_info(), "ram_total_gb": detect_system_ram(),
@@ -1081,20 +1081,41 @@ async def validate_api_token(data: dict):
         if body.get("code") == 0:
             return {"valid": True, "message": "Token 有效", "data": body.get("data", {})}
         else:
-            return {"valid": False, "message": body.get("msg", "验证失败")}
+            return {"valid": False, "message": body.get("msg", "验证失败"),
+                "trace_id": body.get("traceId", "")}
     except urllib.error.HTTPError as e:
         code = e.code
-        if code == 401: return {"valid": False, "message": "Token 无效或已过期"}
-        if code == 403: return {"valid": False, "message": "Token 无权限"}
-        if code == 429: return {"valid": True, "message": "Token 有效（但已达配额限制）"}
-        try:
-            err_body = json.loads(e.read().decode())
-            return {"valid": False, "message": err_body.get("msg", f"API 错误 (HTTP {code})")}
-        except: return {"valid": False, "message": f"API 错误 (HTTP {code})"}
-    except urllib.error.URLError:
-        return {"valid": False, "message": "无法连接 MinerU 服务，请检查网络"}
+        # 把后端真实返回的 msg + traceId 带回来，便于诊断
+        raw_body = ""
+        try: raw_body = e.read().decode("utf-8", errors="replace")
+        except: pass
+        try: err_json = json.loads(raw_body) if raw_body else {}
+        except: err_json = {}
+        backend_msg = err_json.get("msg", "")
+        trace_id = err_json.get("traceId", "")
+        if code == 401:
+            return {"valid": False,
+                "message": f"Token 无效或已过期 (HTTP 401, {backend_msg or 'A0202'})",
+                "trace_id": trace_id, "http": code, "backend_msg": backend_msg}
+        if code == 403:
+            return {"valid": False,
+                "message": f"Token 无权限 (HTTP 403, {backend_msg or 'forbidden'})",
+                "trace_id": trace_id, "http": code, "backend_msg": backend_msg}
+        if code == 429:
+            return {"valid": True, "message": "Token 有效（但已达配额限制）"}
+        return {"valid": False,
+            "message": f"API 错误 (HTTP {code}): {backend_msg or raw_body[:120]}",
+            "trace_id": trace_id, "http": code, "backend_msg": backend_msg}
+    except urllib.error.URLError as e:
+        # 网络层错误（DNS / 中间设备拦截）。把 reason 完整带回便于诊断"regional regulations"等
+        reason = str(getattr(e, "reason", e))
+        return {"valid": False,
+            "message": f"无法连接 MinerU 服务: {reason[:120]}",
+            "http": None, "backend_msg": reason[:200]}
     except Exception as e:
-        return {"valid": False, "message": f"验证失败: {str(e)[:60]}"}
+        return {"valid": False,
+            "message": f"验证失败: {str(e)[:80]}",
+            "http": None, "backend_msg": str(e)[:200]}
 
 # ── Setup Wizard ──
 @app.get("/api/setup/steps")

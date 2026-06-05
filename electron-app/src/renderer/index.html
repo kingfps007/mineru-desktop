@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>MinerU Desktop v3.3.6</title>
+<title>MinerU Desktop v3.3.7</title>
 <style>
 :root {
   --bg: #ffffff; --surface: #f5f7fa; --overlay: #e8ecf1;
@@ -413,11 +413,11 @@ tr:hover td { background: var(--surface); }
       <!-- 关于页面 -->
       <div class="page hidden" id="pg-about">
         <div class="card">
-          <div class="card-title">ℹ 关于 MinerU Desktop v3.3.6</div>
+          <div class="card-title">ℹ 关于 MinerU Desktop v3.3.7</div>
           <div class="card-subtitle" style="line-height:1.8">
             MinerU Desktop 是一款基于 MinerU 的 PDF 解析工具，支持批量解析和 Word 文档生成。
             <br><br><b>版本更新日志</b>:
-            <br>• <b>v3.3.6</b> (2026-06-05) - 🎨 添加品牌图标 build/icon.ico（7 尺寸紫色 M 图标）；主进程加 app.setName + setAppUserModelId + BrowserWindow.icon（任务栏显示紫色 M 图标，任务管理器显示 "MinerU Desktop" 而非 "Electron"）
+            <br>• <b>v3.3.7</b> (2026-06-05) - 🔧 修复任务栏图标：icon.ico 路径加 process.resourcesPath（packaged 后在 resources/build/icon.ico）；token 验证返回详细错误（HTTP code + traceId + 后端 msg）便于诊断 "regional regulations" 等
             <br>• <b>v3.3.4</b> (2026-06-05) - 📊 状态栏 GPU 改用使用率(%)替代固定功率(W)；仪表盘 GPU 加显存带宽%与功率上限
             <br>• <b>v3.3.3</b> (2026-06-05) - 📊 仪表盘重构（系统状态+实时监控卡，删除与向导重复的检查）；监控数据用 psutil 修复精度；状态栏+仪表盘加 CPU 频率/温度
             <br>• <b>v3.3.2</b> (2026-06-05) - 📊 状态栏全宽实时监控 CPU/RAM/GPU 功率；环境总览加 CPU/RAM 评估；预警急停（RAM>95%/CPU>98% 自动暂停）
@@ -460,7 +460,7 @@ tr:hover td { background: var(--surface); }
     <span id="statusProgress" style="display:none;flex:1;max-width:200px;height:6px;background:var(--overlay);border-radius:3px;overflow:hidden"><div id="statusProgressFill" style="height:100%;background:var(--accent);width:0%;transition:width 0.3s"></div></span>
   </div>
   <div class="statusbar-right">
-    <span id="versionInfo">MinerU Desktop v3.3.6</span>
+    <span id="versionInfo">MinerU Desktop v3.3.7</span>
   </div>
 </div>
 

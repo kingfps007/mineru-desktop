@@ -15,7 +15,11 @@ app.setName('MinerU Desktop');
 app.setAppUserModelId('com.mineru.desktop');
 
 // ── 应用图标（任务栏 + 窗口标题栏 + Alt-Tab）──
-const APP_ICON = path.join(__dirname, '..', '..', 'build', 'icon.ico');
+// packaged: resources/build/icon.ico (electron-builder extraResources 拷过来)
+// dev:      electron-app/build/icon.ico
+const APP_ICON = app.isPackaged
+  ? path.join(process.resourcesPath, 'build', 'icon.ico')
+  : path.join(__dirname, '..', '..', 'build', 'icon.ico');
 // ── 查找 Python 解释器 ──
 function findPython() {
   const candidates = [
