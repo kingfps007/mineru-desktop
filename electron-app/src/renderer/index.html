@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>MinerU Desktop v3.2.8</title>
+<title>MinerU Desktop v3.2.9</title>
 <style>
 :root {
   --bg: #ffffff; --surface: #f5f7fa; --overlay: #e8ecf1;
@@ -203,7 +203,7 @@ tr:hover td { background: var(--surface); }
 
 <div class="titlebar">
   <div class="titlebar-left">
-    <span class="titlebar-logo">⬡ MinerU Desktop<span> v3.2.8</span></span>
+    <span class="titlebar-logo">⬡ MinerU Desktop<span> v3.2.9</span></span>
   </div>
   <div class="titlebar-btns">
     <button class="titlebar-btn" onclick="electronAPI.minimize()">─</button>
@@ -425,12 +425,13 @@ tr:hover td { background: var(--surface); }
       <!-- 关于页面 -->
       <div class="page hidden" id="pg-about">
         <div class="card">
-          <div class="card-title">ℹ 关于 MinerU Desktop v3.2.8</div>
+          <div class="card-title">ℹ 关于 MinerU Desktop v3.2.9</div>
           <div class="card-subtitle" style="line-height:1.8">
             MinerU Desktop 是一款基于 MinerU 的 PDF 解析工具，支持批量解析和 Word 文档生成。
             <br><br><b>版本更新日志</b>:
-            <br>• <b>v3.2.8</b> (2026-06-05) - 🐛 修复实际 BATCH_SIZE 为 1（get_batch_size 默认值错误导致每篇重新加载模型、浪费 SSD）
-            <br>• <b>v3.2.7</b> (2026-06-05) - 🐛 修复中文文件名含尾部空格/特殊字符导致 mineru 内部 os.makedirs 失败
+            <br>• <b>v3.2.9</b> (2026-06-05) - 🧹 解析前后自动清理 GPU 显存、去除仪表盘重复检测、环境未就绪时自动展开安装向导
+            <br>• <b>v3.2.8</b> (2026-06-05) - 🐛 修复实际 BATCH_SIZE 为 1（get_batch_size 默认值错误）
+            <br>• <b>v3.2.7</b> (2026-06-05) - 🐛 修复中文文件名含尾部空格/特殊字符
             <br>• <b>v3.2.6</b> (2026-06-05) - 🚨 紧急修复 v3.2.5 三大致命错误
             <br>• <b>v3.2.5</b> (2026-06-05) - <b style="color:#e74c3c">已回退，请勿使用</b>
             <br>• <b>v3.2.4</b> (2026-06-04) - 移除独立设置页（设置分散到各功能页面）；云端解析分两种：免 API（轻量，IP 限流，≤10MB/20 页）+ 精准 API（需 Token，支持 vlm/pipeline/MinerU-HTML，≤200MB/200 页）
@@ -460,7 +461,7 @@ tr:hover td { background: var(--surface); }
         <span id="modelStatus">模型: 检测中...</span>
         <span id="statusProgress" style="display:none;flex:1;max-width:200px;height:6px;background:var(--overlay);border-radius:3px;overflow:hidden"><div id="statusProgressFill" style="height:100%;background:var(--accent);width:0%;transition:width 0.3s"></div></span>
       </div>
-      <span id="versionInfo">MinerU Desktop v3.2.8</span>
+      <span id="versionInfo">MinerU Desktop v3.2.9</span>
     </div>
   </div>
 </div>
@@ -493,7 +494,8 @@ let _parseMode = 'zotero';
 let _envReady = false;
 let _capabilityLevel = 'basic';
 let _parseMethod = 'local';
-let _savedApiToken = '';  // 从 /api/config 加载
+let _savedApiToken = '';
+let _setupAutoDone = false;
 
 function initWS() {
   try { ws = new WebSocket(`ws://127.0.0.1:${API.base.split(':').pop()}/ws/logs`);
@@ -587,14 +589,6 @@ function initPage(page) {
 // ═══════════ DASHBOARD ═══════════
 async function initDashboard() {
   await checkCapability();
-  setTimeout(async () => {
-    try {
-      const deep = await API.get('/api/gpu/deep');
-      const gpu = await API.get('/api/gpu');
-      gpu.cuda_avail = deep.cuda_avail;
-      updateGPUCard(gpu);
-    } catch(e) {}
-  }, 1000);
 }
 
 async function checkCapability() {
@@ -627,6 +621,11 @@ async function checkCapability() {
     updateGPUCard(q.gpu);
     updateModelCard(q.models);
   } catch(e) {}
+  if (!_envReady && !_setupAutoDone) {
+    _setupAutoDone = true;
+    const content = document.getElementById('setupContent');
+    if (content && content.classList.contains('hidden')) toggleSetupCard();
+  }
 }
 
 function updateEnvCheckList(conda, mineru, models, gpu) {
@@ -667,6 +666,7 @@ function updateModelCard(models) {
 }
 
 function recheckEnv() {
+  _setupAutoDone = false;
   updateStatus('正在重新检测...', 'warn');
   checkCapability();
 }
