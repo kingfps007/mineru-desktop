@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>MinerU Desktop v3.2.6</title>
+<title>MinerU Desktop v3.2.7</title>
 <style>
 :root {
   --bg: #ffffff; --surface: #f5f7fa; --overlay: #e8ecf1;
@@ -203,7 +203,7 @@ tr:hover td { background: var(--surface); }
 
 <div class="titlebar">
   <div class="titlebar-left">
-    <span class="titlebar-logo">⬡ MinerU Desktop<span> v3.2.6</span></span>
+    <span class="titlebar-logo">⬡ MinerU Desktop<span> v3.2.7</span></span>
   </div>
   <div class="titlebar-btns">
     <button class="titlebar-btn" onclick="electronAPI.minimize()">─</button>
@@ -425,12 +425,13 @@ tr:hover td { background: var(--surface); }
       <!-- 关于页面 -->
       <div class="page hidden" id="pg-about">
         <div class="card">
-          <div class="card-title">ℹ 关于 MinerU Desktop v3.2.6</div>
+          <div class="card-title">ℹ 关于 MinerU Desktop v3.2.7</div>
           <div class="card-subtitle" style="line-height:1.8">
             MinerU Desktop 是一款基于 MinerU 的 PDF 解析工具，支持批量解析和 Word 文档生成。
             <br><br><b>版本更新日志</b>:
-            <br>• <b>v3.2.6</b> (2026-06-05) - <b style="color:#e74c3c">回退 v3.2.5 错误</b>：恢复 v3.2.4 完整 index.html（v3.2.5 commit 误删为 7 字节导致一片空白）；BATCH_SIZE 回退到 10（v3.2.5 改 1 导致每篇重新加载模型）；清理内存回退 v3.1.2 精准扫描（v3.2.5 taskkill /IM mineru.exe 误杀解析中进程）；取消解析回退 v3.1.2 优雅三步（terminate→wait 2s→kill）
-            <br>• <b>v3.2.5</b> (2026-06-05) - <b style="color:#e74c3c">已回退，请勿使用</b>：5 Tab UI 重构未完整保存到 index.html（git 中文件被清空为 7 字节）；BATCH_SIZE=1 逐篇模式反而拖慢；清理内存 taskkill /IM 误杀 mineru
+            <br>• <b>v3.2.7</b> (2026-06-05) - 🐛 修复中文文件名含尾部空格/特殊字符导致 mineru 内部 os.makedirs 失败（新增 sanitize_name 清洗）
+            <br>• <b>v3.2.6</b> (2026-06-05) - 🚨 紧急修复 v3.2.5 三大致命错误：恢复 v3.2.4 完整 index.html；BATCH_SIZE 1→10 回退 3.1.2 策略；清理内存回退 3.1.2 精准扫描；取消解析回退 3.1.2 优雅三步
+            <br>• <b>v3.2.5</b> (2026-06-05) - <b style="color:#e74c3c">已回退，请勿使用</b>
             <br>• <b>v3.2.4</b> (2026-06-04) - 移除独立设置页（设置分散到各功能页面）；云端解析分两种：免 API（轻量，IP 限流，≤10MB/20 页）+ 精准 API（需 Token，支持 vlm/pipeline/MinerU-HTML，≤200MB/200 页）
             <br>• <b>v3.2.3</b> - 主进程重写：等待后端端口就绪、taskkill /F /T 杀进程树
             <br>• <b>v3.2.2</b> - 修复 conda 显示 bug、配置向导集成到仪表盘
@@ -458,7 +459,7 @@ tr:hover td { background: var(--surface); }
         <span id="modelStatus">模型: 检测中...</span>
         <span id="statusProgress" style="display:none;flex:1;max-width:200px;height:6px;background:var(--overlay);border-radius:3px;overflow:hidden"><div id="statusProgressFill" style="height:100%;background:var(--accent);width:0%;transition:width 0.3s"></div></span>
       </div>
-      <span id="versionInfo">MinerU Desktop v3.2.6</span>
+      <span id="versionInfo">MinerU Desktop v3.2.7</span>
     </div>
   </div>
 </div>
