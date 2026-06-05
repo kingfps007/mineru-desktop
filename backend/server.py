@@ -5,7 +5,7 @@ FastAPI server providing REST APIs for GPU detection, setup wizard,
 Zotero JSON parsing, batch PDF processing, Markdown-to-Word generation,
 and MinerU Cloud API integration.
 """
-import os, sys, json, re, time, subprocess, threading, uuid, shutil, asyncio, gc, io, zipfile
+import os, sys, json, re, time, subprocess, threading, uuid, shutil, asyncio, gc, io, zipfile, ctypes
 from pathlib import Path
 from datetime import datetime
 from concurrent.futures import ThreadPoolExecutor
@@ -313,25 +313,111 @@ def cached_find_conda():
 def cached_detect_mineru_env():
     return _cached_detect("mineru_env", detect_mineru_env, ttl=5)
 
+# ── Windows Memory Status (module-level, reused by monitor thread) ──
+class _MEMORYSTATUSEX(ctypes.Structure):
+    _fields_ = [("dwLength", ctypes.c_ulong), ("dwMemoryLoad", ctypes.c_ulong),
+                 ("ullTotalPhys", ctypes.c_ulonglong), ("ullAvailPhys", ctypes.c_ulonglong),
+                 ("ullTotalPageFile", ctypes.c_ulonglong), ("ullAvailPageFile", ctypes.c_ulonglong),
+                 ("ullTotalVirtual", ctypes.c_ulonglong), ("ullAvailVirtual", ctypes.c_ulonglong)]
+
+class _FILETIME(ctypes.Structure):
+    _fields_ = [("dwLowDateTime", ctypes.c_ulong), ("dwHighDateTime", ctypes.c_ulong)]
+
+def _ft64(ft):
+    return (ft.dwHighDateTime << 32) | ft.dwLowDateTime
+
+# ── System Monitor (background thread, updates every 2s) ──
+_monitor_state = {
+    "cpu_percent": 0, "ram_percent": 0, "ram_total_gb": 0, "ram_available_gb": 0,
+    "gpu_power_w": 0.0, "gpu_memory_used_mb": 0, "gpu_memory_total_mb": 0, "gpu_temperature": 0,
+}
+
+def _monitor_loop():
+    """Background thread: samples CPU/RAM/GPU every ~2s."""
+    kernel32 = ctypes.windll.kernel32
+    while True:
+        try:
+            # CPU usage via GetSystemTimes (two samples, 1s apart)
+            idle1, kern1, user1 = _FILETIME(), _FILETIME(), _FILETIME()
+            idle2, kern2, user2 = _FILETIME(), _FILETIME(), _FILETIME()
+            kernel32.GetSystemTimes(ctypes.byref(idle1), ctypes.byref(kern1), ctypes.byref(user1))
+            time.sleep(1)
+            kernel32.GetSystemTimes(ctypes.byref(idle2), ctypes.byref(kern2), ctypes.byref(user2))
+            idle = _ft64(idle2) - _ft64(idle1)
+            kern = _ft64(kern2) - _ft64(kern1)
+            user = _ft64(user2) - _ft64(user1)
+            total = kern + user
+            if total > 0:
+                _monitor_state["cpu_percent"] = int((1 - idle / total) * 100)
+        except: pass
+        try:
+            # RAM via GlobalMemoryStatusEx
+            m = _MEMORYSTATUSEX()
+            m.dwLength = ctypes.sizeof(_MEMORYSTATUSEX)
+            ctypes.windll.kernel32.GlobalMemoryStatusEx(ctypes.byref(m))
+            _monitor_state["ram_percent"] = m.dwMemoryLoad
+            _monitor_state["ram_total_gb"] = round(m.ullTotalPhys / (1024**3), 1)
+            _monitor_state["ram_available_gb"] = round(m.ullAvailPhys / (1024**3), 1)
+        except: pass
+        try:
+            # GPU power / memory used / temperature via nvidia-smi
+            r = subprocess.run(
+                ["nvidia-smi", "--query-gpu=power.draw,memory.used,memory.total,temperature.gpu",
+                 "--format=csv,noheader"], capture_output=True, text=True, timeout=5)
+            if r.returncode == 0 and r.stdout.strip():
+                parts = [x.strip() for x in r.stdout.strip().split(",")]
+                if len(parts) >= 1:
+                    try: _monitor_state["gpu_power_w"] = float(parts[0].replace(" W", "").replace(" ", ""))
+                    except: pass
+                if len(parts) >= 2:
+                    try: _monitor_state["gpu_memory_used_mb"] = int(parts[1].replace(" MiB", "").replace(" ", ""))
+                    except: pass
+                if len(parts) >= 3:
+                    try: _monitor_state["gpu_memory_total_mb"] = int(parts[2].replace(" MiB", "").replace(" ", ""))
+                    except: pass
+                if len(parts) >= 4:
+                    try: _monitor_state["gpu_temperature"] = int(parts[3])
+                    except: pass
+        except: pass
+
+def _start_monitor_thread():
+    t = threading.Thread(target=_monitor_loop, daemon=True)
+    t.start()
+
 def detect_system_ram():
     try:
-        import ctypes
-        class MEMORYSTATUSEX(ctypes.Structure):
-            _fields_ = [("dwLength", ctypes.c_ulong), ("dwMemoryLoad", ctypes.c_ulong),
-                         ("ullTotalPhys", ctypes.c_ulonglong), ("ullAvailPhys", ctypes.c_ulonglong),
-                         ("ullTotalPageFile", ctypes.c_ulonglong), ("ullAvailPageFile", ctypes.c_ulonglong),
-                         ("ullTotalVirtual", ctypes.c_ulonglong), ("ullAvailVirtual", ctypes.c_ulonglong)]
-        m = MEMORYSTATUSEX()
-        m.dwLength = ctypes.sizeof(MEMORYSTATUSEX)
+        m = _MEMORYSTATUSEX()
+        m.dwLength = ctypes.sizeof(_MEMORYSTATUSEX)
         ctypes.windll.kernel32.GlobalMemoryStatusEx(ctypes.byref(m))
         return round(m.ullTotalPhys / (1024**3), 1)
     except: return 0
+
+def detect_cpu_info():
+    """Static CPU info: name, cores, threads. Called once at startup / on-demand."""
+    info = {"cpu_name": "N/A", "cpu_cores": 0, "cpu_threads": 0}
+    try:
+        r = subprocess.run(
+            ["wmic", "cpu", "get", "name", "/value"],
+            capture_output=True, text=True, timeout=5)
+        if r.returncode == 0:
+            for line in r.stdout.strip().split("\n"):
+                if "=" in line:
+                    info["cpu_name"] = line.split("=", 1)[1].strip()
+                    break
+    except: pass
+    try:
+        info["cpu_cores"] = os.cpu_count() or 0
+        info["cpu_threads"] = os.cpu_count() or 0
+    except: pass
+    return info
 
 def capability_assessment():
     gpu = cached_detect_gpu()
     models = cached_detect_models()
     env = cached_detect_mineru_env()
     conda = cached_find_conda()
+    cpu = detect_cpu_info()
+    ram_gb = detect_system_ram()
     has_nvidia = gpu["has_nvidia"]
     vram_gb = gpu["vram_mb"] / 1024 if gpu["vram_mb"] else 0
 
@@ -345,6 +431,22 @@ def capability_assessment():
     modes = []
     if env and models["pipeline"]: modes.append("pipeline")
     if env and models["vlm"] and has_nvidia: modes.append("vlm")
+
+    # CPU/RAM 评估
+    cpu_cores = cpu.get("cpu_cores", 0) or 0
+    if cpu_cores >= 8:
+        cpu_eval = "充足"
+    elif cpu_cores >= 4:
+        cpu_eval = "一般（批量解析可能较慢）"
+    else:
+        cpu_eval = "不足（建议 ≥4 核）"
+
+    if ram_gb >= 16:
+        ram_eval = "充足"
+    elif ram_gb >= 8:
+        ram_eval = "紧张（建议关闭其他应用）"
+    else:
+        ram_eval = "不足（建议 ≥8GB）"
 
     # level 决定 UI 显示和导航启用：先看 env_ready
     if not env_ready:
@@ -375,6 +477,8 @@ def capability_assessment():
         "level": level, "recommendation": recommendation,
         "conda_installed": has_conda, "mineru_installed": has_mineru,
         "models_ready": has_models, "env_ready": env_ready,
+        "cpu_name": cpu.get("cpu_name", "N/A"), "cpu_cores": cpu_cores,
+        "cpu_eval": cpu_eval, "ram_total_gb": ram_gb, "ram_eval": ram_eval,
     }
 
 def get_gpu_temperature():
@@ -824,6 +928,7 @@ loop = None
 @app.on_event("startup")
 async def startup_event():
     global loop; loop = asyncio.get_event_loop()
+    _start_monitor_thread()
 
 class ParseRequest(BaseModel):
     citekeys: list; output_dir: str; backend: str = "vlm-auto-engine"; lang: str = "en"
@@ -842,16 +947,22 @@ class ConfigData(BaseModel):
 
 @app.get("/api/health")
 async def health():
-    return {"status": "ok", "version": "3.3.1"}
+    return {"status": "ok", "version": "3.3.2"}
 
 @app.get("/api/quick")
 async def quick_status():
     return {
-        "status": "ok", "version": "3.3.1",
+        "status": "ok", "version": "3.3.2",
         "gpu": detect_gpu_fast(), "models": detect_models_fast(),
         "conda": cached_find_conda(), "mineru": cached_detect_mineru_env(),
+        "cpu": detect_cpu_info(), "ram_total_gb": detect_system_ram(),
         "parse_running": state["parse_running"], "setup_running": state["setup_running"],
     }
+
+@app.get("/api/system/monitor")
+async def system_monitor():
+    """Real-time system monitoring data (updated by background thread every ~2s)."""
+    return dict(_monitor_state)
 
 @app.get("/api/capability")
 async def capability():

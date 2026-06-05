@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>MinerU Desktop v3.3.1</title>
+<title>MinerU Desktop v3.3.2</title>
 <style>
 :root {
   --bg: #ffffff; --surface: #f5f7fa; --overlay: #e8ecf1;
@@ -60,10 +60,16 @@ body {
 .content { flex: 1; overflow-y: auto; padding: 24px; }
 .statusbar {
   display: flex; align-items: center; justify-content: space-between;
-  height: 28px; background: var(--surface); border-top: 1px solid var(--border);
-  padding: 0 16px; font-size: 11px; color: var(--dim); min-height: 28px;
+  height: 32px; background: var(--surface); border-top: 1px solid var(--border);
+  padding: 0 12px; font-size: 11px; color: var(--dim); min-height: 32px;
 }
-.statusbar-left { display: flex; align-items: center; gap: 16px; }
+.statusbar-left { display: flex; align-items: center; gap: 14px; flex: 1; min-width: 0; }
+.statusbar-right { display: flex; align-items: center; gap: 8px; white-space: nowrap; }
+.monitor-item { display: inline-flex; align-items: center; gap: 3px; }
+.monitor-val { font-weight: 600; }
+.monitor-warn { color: var(--yellow); }
+.monitor-danger { color: var(--red); font-weight: 700; }
+.monitor-ok { color: var(--green); }
 .status-dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; margin-right: 6px; }
 .status-dot.ok { background: var(--green); }
 .status-dot.warn { background: var(--yellow); }
@@ -203,7 +209,7 @@ tr:hover td { background: var(--surface); }
 
 <div class="titlebar">
   <div class="titlebar-left">
-    <span class="titlebar-logo">⬡ MinerU Desktop<span> v3.3.1</span></span>
+    <span class="titlebar-logo">⬡ MinerU Desktop<span> v3.3.2</span></span>
   </div>
   <div class="titlebar-btns">
     <button class="titlebar-btn" onclick="electronAPI.minimize()">─</button>
@@ -239,6 +245,8 @@ tr:hover td { background: var(--surface); }
             <div class="check-row"><span class="check-icon">⏳</span><span class="check-text">检测中...</span></div>
           </div>
           <div class="grid-2 mt-12" style="gap:12px">
+            <div id="cpuDetail" style="font-size:12px;color:var(--dim)">CPU: 检测中...</div>
+            <div id="ramDetail" style="font-size:12px;color:var(--dim)">RAM: 检测中...</div>
             <div id="gpuDetail" style="font-size:12px;color:var(--dim)">GPU: 检测中...</div>
             <div id="modelDetail" style="font-size:12px;color:var(--dim)">模型: 检测中...</div>
           </div>
@@ -390,10 +398,11 @@ tr:hover td { background: var(--surface); }
       <!-- 关于页面 -->
       <div class="page hidden" id="pg-about">
         <div class="card">
-          <div class="card-title">ℹ 关于 MinerU Desktop v3.3.1</div>
+          <div class="card-title">ℹ 关于 MinerU Desktop v3.3.2</div>
           <div class="card-subtitle" style="line-height:1.8">
             MinerU Desktop 是一款基于 MinerU 的 PDF 解析工具，支持批量解析和 Word 文档生成。
             <br><br><b>版本更新日志</b>:
+            <br>• <b>v3.3.2</b> (2026-06-05) - 📊 状态栏全宽实时监控 CPU/RAM/GPU 功率；环境总览加 CPU/RAM 评估；预警急停（RAM>95%/CPU>98% 自动暂停）
             <br>• <b>v3.3.1</b> (2026-06-05) - 🔧 修复 Token 验证 404（改用 /api/v4/extract/task）；环境总览加 GPU/显存建议；云端结果字段适配 full_zip_url
             <br>• <b>v3.3.0</b> (2026-06-05) - 🎨 仪表盘精简为 2 卡片，打开自动扫描，清理内存全自动
             <br>• <b>v3.2.9</b> (2026-06-05) - 🧹 解析前后自动清理 GPU 显存
@@ -420,16 +429,20 @@ tr:hover td { background: var(--surface); }
         </div>
       </div>
     </div>
+  </div>
+</div>
 
-    <div class="statusbar">
-      <div class="statusbar-left">
-        <span><span class="status-dot ok" id="statusDot"></span><span id="statusText">就绪</span></span>
-        <span id="gpuStatus">GPU: 检测中...</span>
-        <span id="modelStatus">模型: 检测中...</span>
-        <span id="statusProgress" style="display:none;flex:1;max-width:200px;height:6px;background:var(--overlay);border-radius:3px;overflow:hidden"><div id="statusProgressFill" style="height:100%;background:var(--accent);width:0%;transition:width 0.3s"></div></span>
-      </div>
-      <span id="versionInfo">MinerU Desktop v3.3.1</span>
-    </div>
+<div class="statusbar">
+  <div class="statusbar-left">
+    <span><span class="status-dot ok" id="statusDot"></span><span id="statusText">就绪</span></span>
+    <span class="monitor-item" id="cpuMonitor">CPU: --</span>
+    <span class="monitor-item" id="ramMonitor">RAM: --</span>
+    <span class="monitor-item" id="gpuPowerMonitor">GPU: --</span>
+    <span id="modelStatus">模型: 检测中...</span>
+    <span id="statusProgress" style="display:none;flex:1;max-width:200px;height:6px;background:var(--overlay);border-radius:3px;overflow:hidden"><div id="statusProgressFill" style="height:100%;background:var(--accent);width:0%;transition:width 0.3s"></div></span>
+  </div>
+  <div class="statusbar-right">
+    <span id="versionInfo">MinerU Desktop v3.3.2</span>
   </div>
 </div>
 
@@ -503,13 +516,7 @@ function updateStatus(text, dotType) {
 async function refreshStatus() {
   try {
     const q = await API.get('/api/quick');
-    const gpu = q.gpu;
-    const gpuEl = document.getElementById('gpuStatus');
-    if (gpu.has_nvidia) {
-      const temp = gpu.temperature || 0;
-      let cl = 'normal'; if (temp > 70) cl = 'hot'; else if (temp > 55) cl = 'warm';
-      gpuEl.innerHTML = `GPU: ${gpu.gpu_name.substring(0,20)} | ${gpu.vram_mb}MB | <span class="gpu-temp ${cl}">${temp}°C</span>`;
-    } else { gpuEl.innerHTML = '<span style="color:#dc2626">⚠ 无显卡</span>'; }
+    _parseRunning = !!q.parse_running;
     const models = q.models;
     document.getElementById('modelStatus').innerHTML = `模型: ${(models.pipeline&&models.vlm) ? '<span style="color:#16a34a">齐全</span>' : '<span style="color:#d97706">缺失</span>'}`;
 
@@ -530,6 +537,59 @@ async function refreshStatus() {
       else updateStatus(_envReady ? '就绪' : '请完成环境安装', 'warn');
     }
   } catch(e) { updateStatus('后端未连接', 'err'); }
+}
+
+// ── System Monitor (real-time CPU/RAM/GPU in statusbar) ──
+let _parseRunning = false;
+let _lastEmergencyStop = 0;
+
+async function refreshMonitor() {
+  try {
+    const m = await API.get('/api/system/monitor');
+    // CPU
+    const cpuEl = document.getElementById('cpuMonitor');
+    const cpuPct = m.cpu_percent || 0;
+    const cpuCls = cpuPct > 90 ? 'monitor-danger' : cpuPct > 70 ? 'monitor-warn' : 'monitor-ok';
+    cpuEl.innerHTML = `CPU: <span class="monitor-val ${cpuCls}">${cpuPct}%</span>`;
+
+    // RAM
+    const ramEl = document.getElementById('ramMonitor');
+    const ramPct = m.ram_percent || 0;
+    const ramAvail = m.ram_available_gb || 0;
+    const ramCls = ramPct > 90 ? 'monitor-danger' : ramPct > 70 ? 'monitor-warn' : 'monitor-ok';
+    ramEl.innerHTML = `RAM: <span class="monitor-val ${ramCls}">${ramPct}%</span> <span style="font-weight:400">(${ramAvail.toFixed(1)}G可用)</span>`;
+
+    // GPU power + vram + temp
+    const gpuEl = document.getElementById('gpuPowerMonitor');
+    const gpuPower = m.gpu_power_w || 0;
+    const gpuMemUsed = m.gpu_memory_used_mb || 0;
+    const gpuMemTotal = m.gpu_memory_total_mb || 0;
+    const gpuTemp = m.gpu_temperature || 0;
+    if (gpuMemTotal > 0) {
+      const pwrCls = gpuPower > 250 ? 'monitor-danger' : gpuPower > 150 ? 'monitor-warn' : '';
+      const tmpCls = gpuTemp > 80 ? 'monitor-danger' : gpuTemp > 70 ? 'monitor-warn' : '';
+      gpuEl.innerHTML = `GPU: <span class="${pwrCls}">${gpuPower.toFixed(0)}W</span> | <span class="${tmpCls}">${gpuTemp}°C</span> | ${gpuMemUsed}/${gpuMemTotal}MB`;
+    } else {
+      gpuEl.innerHTML = 'GPU: N/A';
+    }
+
+    // Emergency stop: RAM > 95% or CPU > 98% during parsing
+    if (_parseRunning && (ramPct > 95 || cpuPct > 98)) {
+      const now = Date.now();
+      if (now - _lastEmergencyStop > 30000) {  // 30s cooldown
+        _lastEmergencyStop = now;
+        emergencyStop(ramPct > 95 ? `内存使用率 ${ramPct}% 过高` : `CPU 使用率 ${cpuPct}% 过高`);
+      }
+    }
+  } catch(e) {}
+}
+
+async function emergencyStop(reason) {
+  addLog(`⚠️ 紧急停止: ${reason}，自动暂停解析防止系统卡死`);
+  updateStatus(`⚠ ${reason}`, 'err');
+  try {
+    await API.post('/api/parse/cancel');
+  } catch(e) {}
 }
 
 function switchTab(page) {
@@ -570,6 +630,8 @@ async function initDashboard() {
     document.getElementById('envOverviewTitle').textContent = icon + ' 环境总览';
 
     updateEnvCheckList(q.conda, q.mineru, q.models, q.gpu);
+    updateCpuDetail(q.cpu, cap);
+    updateRamDetail(q.ram_total_gb, cap);
     updateGPUDetail(q.gpu);
     updateModelDetail(q.models);
 
@@ -611,6 +673,22 @@ function updateEnvCheckList(conda, mineru, models, gpu) {
     const cls = item.ok ? 'ok' : 'err';
     return `<div class="check-row"><span class="check-icon ${cls}">${icon}</span><span class="check-text"><b>${item.label}</b>: ${escHtml(item.status)}</span></div>`;
   }).join('') + (tips.length ? '<div style="margin-top:8px;padding:8px 12px;background:var(--overlay);border-radius:6px;font-size:12px;line-height:1.8;color:var(--dim)">' + tips.map(t => escHtml(t)).join('<br>') + '</div>' : '');
+}
+
+function updateCpuDetail(cpu, cap) {
+  const el = document.getElementById('cpuDetail');
+  if (!el) return;
+  if (!cpu) { el.innerHTML = '<b>CPU</b>: 检测失败'; return; }
+  const evalCls = cap.cpu_eval === '充足' ? 'color:#16a34a' : cap.cpu_eval === '不足（建议 ≥4 核）' ? 'color:#dc2626' : 'color:#d97706';
+  el.innerHTML = `<b>CPU</b>: ${escHtml(cpu.cpu_name || 'N/A')} | ${cpu.cpu_cores || 0} 核 | <span style="${evalCls}">${escHtml(cap.cpu_eval || '')}</span>`;
+}
+
+function updateRamDetail(ramGb, cap) {
+  const el = document.getElementById('ramDetail');
+  if (!el) return;
+  const gb = ramGb || 0;
+  const evalCls = cap.ram_eval === '充足' ? 'color:#16a34a' : cap.ram_eval === '不足（建议 ≥8GB）' ? 'color:#dc2626' : 'color:#d97706';
+  el.innerHTML = `<b>RAM</b>: ${gb.toFixed(1)} GB | <span style="${evalCls}">${escHtml(cap.ram_eval || '')}</span>`;
 }
 
 function updateGPUDetail(gpu) {
@@ -953,6 +1031,7 @@ async function init() {
     updateStatus('后端未连接', 'err');
   }
   setInterval(refreshStatus, 1000);
+  setInterval(refreshMonitor, 2000);
 }
 
 document.addEventListener('DOMContentLoaded', init);
