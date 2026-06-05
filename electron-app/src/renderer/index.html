@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>MinerU Desktop v3.3.3</title>
+<title>MinerU Desktop v3.3.4</title>
 <style>
 :root {
   --bg: #ffffff; --surface: #f5f7fa; --overlay: #e8ecf1;
@@ -206,7 +206,7 @@ tr:hover td { background: var(--surface); }
 
 <div class="titlebar">
   <div class="titlebar-left">
-    <span class="titlebar-logo">⬡ MinerU Desktop<span> v3.3.2</span></span>
+    <span class="titlebar-logo">⬡ MinerU Desktop<span> v3.3.4</span></span>
   </div>
   <div class="titlebar-btns">
     <button class="titlebar-btn" onclick="electronAPI.minimize()">─</button>
@@ -413,7 +413,7 @@ tr:hover td { background: var(--surface); }
       <!-- 关于页面 -->
       <div class="page hidden" id="pg-about">
         <div class="card">
-          <div class="card-title">ℹ 关于 MinerU Desktop v3.3.2</div>
+          <div class="card-title">ℹ 关于 MinerU Desktop v3.3.4</div>
           <div class="card-subtitle" style="line-height:1.8">
             MinerU Desktop 是一款基于 MinerU 的 PDF 解析工具，支持批量解析和 Word 文档生成。
             <br><br><b>版本更新日志</b>:
@@ -458,7 +458,7 @@ tr:hover td { background: var(--surface); }
     <span id="statusProgress" style="display:none;flex:1;max-width:200px;height:6px;background:var(--overlay);border-radius:3px;overflow:hidden"><div id="statusProgressFill" style="height:100%;background:var(--accent);width:0%;transition:width 0.3s"></div></span>
   </div>
   <div class="statusbar-right">
-    <span id="versionInfo">MinerU Desktop v3.3.2</span>
+    <span id="versionInfo">MinerU Desktop v3.3.4</span>
   </div>
 </div>
 
@@ -567,7 +567,10 @@ async function refreshMonitor() {
     const ramAvail = m.ram_available_gb || 0;
     const cpuFreq = m.cpu_freq_mhz || 0;
     const cpuTemp = m.cpu_temp_c || 0;
+    const gpuUtil = m.gpu_utilization || 0;
+    const gpuMemUtil = m.gpu_memory_utilization || 0;
     const gpuPower = m.gpu_power_w || 0;
+    const gpuPowerLimit = m.gpu_power_limit_w || 0;
     const gpuMemUsed = m.gpu_memory_used_mb || 0;
     const gpuMemTotal = m.gpu_memory_total_mb || 0;
     const gpuTemp = m.gpu_temperature || 0;
@@ -584,12 +587,12 @@ async function refreshMonitor() {
     const ramCls = ramPct > 90 ? 'monitor-danger' : ramPct > 70 ? 'monitor-warn' : 'monitor-ok';
     ramEl.innerHTML = `RAM: <span class="monitor-val ${ramCls}">${ramPct}%</span> <span style="font-weight:400">(${ramAvail.toFixed(1)}G可用)</span>`;
 
-    // 状态栏：GPU（功率 + 温度 + 显存）
+    // 状态栏：GPU（使用率 + 温度 + 显存）
     const gpuEl = document.getElementById('gpuPowerMonitor');
     if (gpuMemTotal > 0) {
-      const pwrCls = gpuPower > 250 ? 'monitor-danger' : gpuPower > 150 ? 'monitor-warn' : '';
+      const utilCls = gpuUtil > 90 ? 'monitor-danger' : gpuUtil > 60 ? 'monitor-warn' : 'monitor-ok';
       const tmpCls = gpuTemp > 80 ? 'monitor-danger' : gpuTemp > 70 ? 'monitor-warn' : '';
-      gpuEl.innerHTML = `GPU: <span class="${pwrCls}">${gpuPower.toFixed(0)}W</span> | <span class="${tmpCls}">${gpuTemp}°C</span> | ${(gpuMemUsed/1024).toFixed(1)}/${(gpuMemTotal/1024).toFixed(1)}G`;
+      gpuEl.innerHTML = `GPU: <span class="monitor-val ${utilCls}">${gpuUtil}%</span> | <span class="${tmpCls}">${gpuTemp}°C</span> | ${(gpuMemUsed/1024).toFixed(1)}/${(gpuMemTotal/1024).toFixed(1)}G`;
     } else {
       gpuEl.innerHTML = 'GPU: N/A';
     }
@@ -609,9 +612,10 @@ async function refreshMonitor() {
     const dashGpu = document.getElementById('dashGpu');
     if (dashGpu) {
       if (gpuMemTotal > 0) {
-        const pwrCls2 = gpuPower > 250 ? 'var(--red)' : gpuPower > 150 ? 'var(--yellow)' : 'var(--green)';
+        const utilCls2 = gpuUtil > 90 ? 'var(--red)' : gpuUtil > 60 ? 'var(--yellow)' : 'var(--green)';
         const tmpCls2 = gpuTemp > 80 ? 'var(--red)' : gpuTemp > 70 ? 'var(--yellow)' : 'var(--green)';
-        dashGpu.innerHTML = `<span style="color:${pwrCls2}">${gpuPower.toFixed(0)}W</span> · <span style="color:${tmpCls2}">${gpuTemp}°C</span><br><span style="font-size:12px;color:var(--dim)">显存 ${(gpuMemUsed/1024).toFixed(1)}/${(gpuMemTotal/1024).toFixed(1)}G</span>`;
+        const powerStr = gpuPowerLimit > 0 ? ` · <span style="color:var(--dim)">${gpuPower.toFixed(0)}/${gpuPowerLimit.toFixed(0)}W</span>` : '';
+        dashGpu.innerHTML = `<span style="color:${utilCls2}">${gpuUtil}%</span> · <span style="color:${tmpCls2}">${gpuTemp}°C</span>${powerStr}<br><span style="font-size:12px;color:var(--dim)">显存 ${(gpuMemUsed/1024).toFixed(1)}/${(gpuMemTotal/1024).toFixed(1)}G${gpuMemUtil>0?' · '+gpuMemUtil+'%带宽':''}</span>`;
       } else {
         dashGpu.innerHTML = '<span style="color:var(--dim)">N/A</span>';
       }

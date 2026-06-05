@@ -336,7 +336,8 @@ except ImportError:
 _monitor_state = {
     "cpu_percent": 0, "cpu_freq_mhz": 0, "cpu_temp_c": 0, "cpu_power_w": 0.0,
     "ram_percent": 0, "ram_total_gb": 0, "ram_available_gb": 0, "ram_used_gb": 0,
-    "gpu_power_w": 0.0, "gpu_memory_used_mb": 0, "gpu_memory_total_mb": 0, "gpu_temperature": 0,
+    "gpu_utilization": 0, "gpu_memory_utilization": 0, "gpu_power_w": 0.0, "gpu_power_limit_w": 0.0,
+    "gpu_memory_used_mb": 0, "gpu_memory_total_mb": 0, "gpu_temperature": 0,
 }
 
 def _query_cpu_temp_wmi():
@@ -383,23 +384,33 @@ def _monitor_loop():
                 if t > 0: _monitor_state["cpu_temp_c"] = t
         except: pass
         try:
-            # GPU power / memory used / temperature via nvidia-smi
+            # GPU: 利用率 / 显存带宽 / 功率 / 温度 / 显存占用
             r = subprocess.run(
-                ["nvidia-smi", "--query-gpu=power.draw,memory.used,memory.total,temperature.gpu",
+                ["nvidia-smi",
+                 "--query-gpu=utilization.gpu,utilization.memory,power.draw,power.limit,memory.used,memory.total,temperature.gpu",
                  "--format=csv,noheader"], capture_output=True, text=True, timeout=5)
             if r.returncode == 0 and r.stdout.strip():
                 parts = [x.strip() for x in r.stdout.strip().split(",")]
                 if len(parts) >= 1:
-                    try: _monitor_state["gpu_power_w"] = float(parts[0].replace(" W", "").replace(" ", ""))
+                    try: _monitor_state["gpu_utilization"] = int(parts[0].replace(" %", "").replace(" ", ""))
                     except: pass
                 if len(parts) >= 2:
-                    try: _monitor_state["gpu_memory_used_mb"] = int(parts[1].replace(" MiB", "").replace(" ", ""))
+                    try: _monitor_state["gpu_memory_utilization"] = int(parts[1].replace(" %", "").replace(" ", ""))
                     except: pass
                 if len(parts) >= 3:
-                    try: _monitor_state["gpu_memory_total_mb"] = int(parts[2].replace(" MiB", "").replace(" ", ""))
+                    try: _monitor_state["gpu_power_w"] = float(parts[2].replace(" W", "").replace(" ", ""))
                     except: pass
                 if len(parts) >= 4:
-                    try: _monitor_state["gpu_temperature"] = int(parts[3])
+                    try: _monitor_state["gpu_power_limit_w"] = float(parts[3].replace(" W", "").replace(" ", ""))
+                    except: pass
+                if len(parts) >= 5:
+                    try: _monitor_state["gpu_memory_used_mb"] = int(parts[4].replace(" MiB", "").replace(" ", ""))
+                    except: pass
+                if len(parts) >= 6:
+                    try: _monitor_state["gpu_memory_total_mb"] = int(parts[5].replace(" MiB", "").replace(" ", ""))
+                    except: pass
+                if len(parts) >= 7:
+                    try: _monitor_state["gpu_temperature"] = int(parts[6])
                     except: pass
         except: pass
         time.sleep(2)
@@ -980,7 +991,7 @@ async def health():
 @app.get("/api/quick")
 async def quick_status():
     return {
-        "status": "ok", "version": "3.3.3",
+        "status": "ok", "version": "3.3.4",
         "gpu": detect_gpu_fast(), "models": detect_models_fast(),
         "conda": cached_find_conda(), "mineru": cached_detect_mineru_env(),
         "cpu": detect_cpu_info(), "ram_total_gb": detect_system_ram(),
