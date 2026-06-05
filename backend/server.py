@@ -24,7 +24,7 @@ DEFAULT_PORT = 18766
 MAX_PARSE_TIMEOUT = 600
 GPU_TEMP_PAUSE_THRESHOLD = 70
 GPU_TEMP_PAUSE_SECONDS = 30
-# v3.2.7 回退到 3.1.2 策略：BATCH_SIZE=10 已被用户在 300+ 篇验证（只崩 1 次），
+# v3.2.8 回退到 3.1.2 策略：BATCH_SIZE=10 已被用户在 300+ 篇验证（只崩 1 次），
 # 我 v3.2.5 自作主张改成 1 是错的——每篇重新加载模型多花 5-10s。
 # 此处保留 get_batch_size() 供用户在「本地配置」微调（仅显存 ≥16GB 可上调到 3-5）。
 BATCH_SIZE = 10
@@ -34,7 +34,7 @@ def get_batch_size():
     """v3.2.5 新增：从配置读取 BATCH_SIZE，允许用户运行时调整"""
     try:
         cfg = load_config()
-        bs = int(cfg.get("batch_size", 1))
+        bs = int(cfg.get("batch_size", 10))
         if bs < 1: bs = 1
         if bs > 10: bs = 10
         return bs
@@ -43,7 +43,7 @@ def get_batch_size():
 
 def sanitize_name(name):
     """清洗文件名：去掉首尾空格、换行符和 Windows 非法字符。
-    v3.2.7 修复：中文文件名+尾部空格导致 mineru 内部 os.makedirs 失败。
+    v3.2.8 修复：中文文件名+尾部空格导致 mineru 内部 os.makedirs 失败。
     """
     name = name.strip()
     for ch in '<>:"/\\|?*':
@@ -73,7 +73,7 @@ state = {
 
 # ── GPU / CPU / Process Cleanup ──
 def cleanup_memory():
-    """释放显存 + 清理残留进程（v3.2.7 回退到 3.1.2 风格）
+    """释放显存 + 清理残留进程（v3.2.8 回退到 3.1.2 风格）
 
     v3.2.5 教训：
     1. **不要 `taskkill /F /T /IM mineru.exe`** —— 这会**杀当前正在解析的 mineru.exe**，
@@ -838,16 +838,16 @@ class ConfigData(BaseModel):
     mineru_path: str = ""; output_dir: str = ""; gpu_temp_threshold: int = 70
     backend: str = "vlm-auto-engine"; lang: str = "en"; theme: str = "light"
     mineru_api_token: str = ""; mineru_api_server: str = ""
-    batch_size: int = 1   # v3.2.5 新增：每批解析篇数（1=稳，10=快但 OOM）
+    batch_size: int = 10
 
 @app.get("/api/health")
 async def health():
-    return {"status": "ok", "version": "3.2.7"}
+    return {"status": "ok", "version": "3.2.8"}
 
 @app.get("/api/quick")
 async def quick_status():
     return {
-        "status": "ok", "version": "3.2.7",
+        "status": "ok", "version": "3.2.8",
         "gpu": detect_gpu_fast(), "models": detect_models_fast(),
         "conda": cached_find_conda(), "mineru": cached_detect_mineru_env(),
         "parse_running": state["parse_running"], "setup_running": state["setup_running"],
@@ -1304,7 +1304,7 @@ def _batch_parse_core(items, env, output_dir, backend, lang):
                 sync_log(f"  ✗ {it['name']}: 复制PDF失败 ({e})")
 
         retry = 0; batch_success = False
-        batch_timeout = BATCH_SIZE * 720
+        batch_timeout = batch_size * 720
 
         while retry < MAX_RETRIES and not batch_success:
             if retry > 0:
@@ -1393,7 +1393,7 @@ async def start_parse(req: ParseRequest):
 
 @app.post("/api/parse/cancel")
 async def cancel_parse():
-    """v3.2.7 回退到 3.1.2 优雅风格：terminate → wait 2s → kill
+    """v3.2.8 回退到 3.1.2 优雅风格：terminate → wait 2s → kill
     v3.2.5 用的 taskkill /F /T /PID 过于激进，会让 worker 丢数据、关文件未刷盘。
     3.1.2 的 3 步流程给 worker 2s 优雅退出时间，被用户 300+ 篇验证稳定。
     """
