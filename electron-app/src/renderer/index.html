@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>MinerU Desktop v3.2.9</title>
+<title>MinerU Desktop v3.3.0</title>
 <style>
 :root {
   --bg: #ffffff; --surface: #f5f7fa; --overlay: #e8ecf1;
@@ -203,7 +203,7 @@ tr:hover td { background: var(--surface); }
 
 <div class="titlebar">
   <div class="titlebar-left">
-    <span class="titlebar-logo">⬡ MinerU Desktop<span> v3.2.9</span></span>
+    <span class="titlebar-logo">⬡ MinerU Desktop<span> v3.3.0</span></span>
   </div>
   <div class="titlebar-btns">
     <button class="titlebar-btn" onclick="electronAPI.minimize()">─</button>
@@ -233,59 +233,24 @@ tr:hover td { background: var(--surface); }
     <div class="content" id="content">
       <!-- 仪表盘 -->
       <div class="page" id="pg-dashboard">
-        <div class="card" id="capabilityCard" style="border-left:3px solid var(--accent)">
-          <div class="card-title" id="capabilityTitle">🖥 系统能力评估</div>
-          <div class="card-subtitle" id="capabilityText">检测中...</div>
-        </div>
-
-        <div class="card">
-          <div class="card-title">🔍 环境检查</div>
-          <div class="card-subtitle">检查 Miniconda / MinerU / 模型是否就绪</div>
+        <div class="card" id="envOverviewCard" style="border-left:3px solid var(--accent)">
+          <div class="card-title" id="envOverviewTitle">🔍 环境总览</div>
           <div id="envCheckList">
-            <div class="check-row"><span class="check-icon">⏳</span><span class="check-text">Miniconda: 检测中...</span></div>
-            <div class="check-row"><span class="check-icon">⏳</span><span class="check-text">MinerU 环境: 检测中...</span></div>
-            <div class="check-row"><span class="check-icon">⏳</span><span class="check-text">Pipeline 模型: 检测中...</span></div>
-            <div class="check-row"><span class="check-icon">⏳</span><span class="check-text">VLM 模型: 检测中...</span></div>
-            <div class="check-row"><span class="check-icon">⏳</span><span class="check-text">GPU 加速: 检测中...</span></div>
+            <div class="check-row"><span class="check-icon">⏳</span><span class="check-text">检测中...</span></div>
           </div>
-          <div class="flex-row gap-12 mt-12">
-            <button class="btn" onclick="recheckEnv()">🔄 重新检测</button>
-            <button class="btn" onclick="cleanupMemory()">🧹 清理内存</button>
-            <button class="btn" onclick="toggleSetupCard()">⚙ 展开安装向导</button>
+          <div class="grid-2 mt-12" style="gap:12px">
+            <div id="gpuDetail" style="font-size:12px;color:var(--dim)">GPU: 检测中...</div>
+            <div id="modelDetail" style="font-size:12px;color:var(--dim)">模型: 检测中...</div>
           </div>
         </div>
 
         <div class="card" id="setupCard">
-          <div class="card-title" style="cursor:pointer;user-select:none" onclick="toggleSetupCard()">
-            <span id="setupArrow">▶</span> ⚙ 安装向导
-            <span class="text-dim" style="font-weight:normal;margin-left:auto">点击展开/折叠</span>
-          </div>
-          <div id="setupContent" class="hidden">
-            <div class="card-subtitle">每一步都需手动确认，已完成的步骤自动跳过</div>
-            <div class="step-list" id="setupSteps"></div>
-            <div class="progress-bar mt-12"><div class="progress-fill" id="setupProgressBar"></div></div>
-            <div class="text-dim mt-8" id="setupProgressText"></div>
-            <div class="log-panel mt-12" id="logPanelS"></div>
-          </div>
-        </div>
-
-        <div class="grid-2">
-          <div class="card">
-            <div class="card-title">🖥 GPU 状态</div>
-            <div id="gpuCardDetail" style="font-size:12px;color:var(--dim)">检测中...</div>
-          </div>
-          <div class="card">
-            <div class="card-title">📦 模型状态</div>
-            <div id="modelCardDetail" style="font-size:12px;color:var(--dim)">检测中...</div>
-          </div>
-        </div>
-
-        <div class="card">
-          <div class="card-title">🚀 快捷入口</div>
-          <div class="flex-row gap-12">
-            <button class="btn primary" onclick="switchTab('parse')">📄 开始批量解析</button>
-            <button class="btn" onclick="switchTab('word')">📝 生成 Word</button>
-          </div>
+          <div class="card-title">⚙ 安装向导</div>
+          <div class="card-subtitle">每一步都需手动确认，已完成的步骤自动跳过</div>
+          <div class="step-list" id="setupSteps"></div>
+          <div class="progress-bar mt-12"><div class="progress-fill" id="setupProgressBar"></div></div>
+          <div class="text-dim mt-8" id="setupProgressText"></div>
+          <div class="log-panel mt-12" id="logPanelS"></div>
         </div>
       </div>
 
@@ -425,11 +390,12 @@ tr:hover td { background: var(--surface); }
       <!-- 关于页面 -->
       <div class="page hidden" id="pg-about">
         <div class="card">
-          <div class="card-title">ℹ 关于 MinerU Desktop v3.2.9</div>
+          <div class="card-title">ℹ 关于 MinerU Desktop v3.3.0</div>
           <div class="card-subtitle" style="line-height:1.8">
             MinerU Desktop 是一款基于 MinerU 的 PDF 解析工具，支持批量解析和 Word 文档生成。
             <br><br><b>版本更新日志</b>:
-            <br>• <b>v3.2.9</b> (2026-06-05) - 🧹 解析前后自动清理 GPU 显存、去除仪表盘重复检测、环境未就绪时自动展开安装向导
+            <br>• <b>v3.3.0</b> (2026-06-05) - 🎨 仪表盘精简：环境总览+安装向导 2 卡片（合并系统能力/环境检查/GPU/模型/快捷入口），打开自动扫描，清理内存全自动
+            <br>• <b>v3.2.9</b> (2026-06-05) - 🧹 解析前后自动清理 GPU 显存
             <br>• <b>v3.2.8</b> (2026-06-05) - 🐛 修复实际 BATCH_SIZE 为 1（get_batch_size 默认值错误）
             <br>• <b>v3.2.7</b> (2026-06-05) - 🐛 修复中文文件名含尾部空格/特殊字符
             <br>• <b>v3.2.6</b> (2026-06-05) - 🚨 紧急修复 v3.2.5 三大致命错误
@@ -461,7 +427,7 @@ tr:hover td { background: var(--surface); }
         <span id="modelStatus">模型: 检测中...</span>
         <span id="statusProgress" style="display:none;flex:1;max-width:200px;height:6px;background:var(--overlay);border-radius:3px;overflow:hidden"><div id="statusProgressFill" style="height:100%;background:var(--accent);width:0%;transition:width 0.3s"></div></span>
       </div>
-      <span id="versionInfo">MinerU Desktop v3.2.9</span>
+      <span id="versionInfo">MinerU Desktop v3.3.0</span>
     </div>
   </div>
 </div>
@@ -495,7 +461,6 @@ let _envReady = false;
 let _capabilityLevel = 'basic';
 let _parseMethod = 'local';
 let _savedApiToken = '';
-let _setupAutoDone = false;
 
 function initWS() {
   try { ws = new WebSocket(`ws://127.0.0.1:${API.base.split(':').pop()}/ws/logs`);
@@ -588,44 +553,31 @@ function initPage(page) {
 
 // ═══════════ DASHBOARD ═══════════
 async function initDashboard() {
-  await checkCapability();
-}
-
-async function checkCapability() {
   try {
+    const q = await API.get('/api/quick');
     const cap = await API.get('/api/capability');
     _capabilityLevel = cap.level;
+    _envReady = !!cap.env_ready;
+
     let clr = 'var(--green)';
     if (cap.level === 'basic') clr = 'var(--red)';
     else if (cap.level === 'limited') clr = 'var(--yellow)';
     else if (cap.level === 'capable') clr = 'var(--accent)';
-    document.getElementById('capabilityCard').style.borderLeftColor = clr;
-    document.getElementById('capabilityText').textContent = cap.recommendation;
-    const title = document.getElementById('capabilityTitle');
-    if (title) {
-      let icon = '✅';
-      if (cap.level === 'basic') icon = '❌';
-      else if (cap.level === 'limited') icon = '⚠️';
-      title.textContent = icon + ' 系统能力评估';
-    }
-    _envReady = !!cap.env_ready;
+    document.getElementById('envOverviewCard').style.borderLeftColor = clr;
+
+    let icon = '✅'; if (cap.level === 'basic') icon = '❌'; else if (cap.level === 'limited') icon = '⚠️';
+    document.getElementById('envOverviewTitle').textContent = icon + ' 环境总览';
+
+    updateEnvCheckList(q.conda, q.mineru, q.models, q.gpu);
+    updateGPUDetail(q.gpu);
+    updateModelDetail(q.models);
+
     if (_envReady) updateStatus('就绪', 'ok');
     else updateStatus('请完成环境安装', 'warn');
   } catch(e) {
-    document.getElementById('capabilityText').textContent = '无法评估系统能力';
     updateStatus('后端未连接', 'err');
   }
-  try {
-    const q = await API.get('/api/quick');
-    updateEnvCheckList(q.conda, q.mineru, q.models, q.gpu);
-    updateGPUCard(q.gpu);
-    updateModelCard(q.models);
-  } catch(e) {}
-  if (!_envReady && !_setupAutoDone) {
-    _setupAutoDone = true;
-    const content = document.getElementById('setupContent');
-    if (content && content.classList.contains('hidden')) toggleSetupCard();
-  }
+  loadSetupSteps();
 }
 
 function updateEnvCheckList(conda, mineru, models, gpu) {
@@ -652,36 +604,19 @@ function updateEnvCheckList(conda, mineru, models, gpu) {
   }).join('');
 }
 
-function updateGPUCard(gpu) {
-  const el = document.getElementById('gpuCardDetail');
+function updateGPUDetail(gpu) {
+  const el = document.getElementById('gpuDetail');
   if (!el) return;
-  const cudaText = gpu.cuda_avail === true ? '✓ 可用' : gpu.cuda_avail === false ? '✗ 不可用' : '检测中...';
-  el.innerHTML = `显卡: ${gpu.has_nvidia ? gpu.gpu_name : '<span style="color:#f7768e">未检测到 NVIDIA 显卡</span>'}<br>显存: ${gpu.vram_mb} MB${gpu.has_nvidia ? '<br>驱动: ' + gpu.driver : ''}<br>CUDA: ${cudaText}${gpu.has_nvidia ? '<br>温度: <span class="gpu-temp ' + (gpu.temperature > 70 ? 'hot' : gpu.temperature > 55 ? 'warm' : 'normal') + '">' + gpu.temperature + '°C</span>' : ''}`;
+  if (!gpu || !gpu.has_nvidia) { el.innerHTML = '<span style="color:#f7768e">GPU: 未检测到 NVIDIA 显卡</span>'; return; }
+  const temp = gpu.temperature || 0;
+  const tcls = temp > 70 ? 'hot' : temp > 55 ? 'warm' : 'normal';
+  el.innerHTML = `<b>GPU</b>: ${gpu.gpu_name} | ${gpu.vram_mb}MB | 驱动 ${gpu.driver} | <span class="gpu-temp ${tcls}">${temp}°C</span>`;
 }
 
-function updateModelCard(models) {
-  const el = document.getElementById('modelCardDetail');
+function updateModelDetail(models) {
+  const el = document.getElementById('modelDetail');
   if (!el) return;
-  el.innerHTML = `Pipeline: ${models.pipeline ? '✓ 已安装' : '✗ 未安装'}<br>VLM: ${models.vlm ? '✓ 已安装' : '✗ 未安装'}`;
-}
-
-function recheckEnv() {
-  _setupAutoDone = false;
-  updateStatus('正在重新检测...', 'warn');
-  checkCapability();
-}
-
-function toggleSetupCard() {
-  const content = document.getElementById('setupContent');
-  const arrow = document.getElementById('setupArrow');
-  if (content.classList.contains('hidden')) {
-    content.classList.remove('hidden');
-    arrow.textContent = '▼';
-    loadSetupSteps();
-  } else {
-    content.classList.add('hidden');
-    arrow.textContent = '▶';
-  }
+  el.innerHTML = `<b>模型</b>: Pipeline ${models.pipeline ? '✓' : '✗'} | VLM ${models.vlm ? '✓' : '✗'}`;
 }
 
 async function loadSetupSteps() {
@@ -901,14 +836,6 @@ async function cancelParse() {
   document.getElementById('btnCancel').disabled = true;
   document.getElementById('btnParse').disabled = false;
   updateStatus('就绪', 'ok');
-}
-
-async function cleanupMemory() {
-  try {
-    addLog('正在清理内存...');
-    const r = await API.post('/api/cleanup');
-    addLog(r.message);
-  } catch(e) { addLog('清理失败: ' + e.message); }
 }
 
 // ═══════════ WORD PAGE ═══════════
