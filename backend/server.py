@@ -327,37 +327,60 @@ def _ft64(ft):
     return (ft.dwHighDateTime << 32) | ft.dwLowDateTime
 
 # ── System Monitor (background thread, updates every 2s) ──
+try:
+    import psutil
+    _HAS_PSUTIL = True
+except ImportError:
+    _HAS_PSUTIL = False
+
 _monitor_state = {
-    "cpu_percent": 0, "ram_percent": 0, "ram_total_gb": 0, "ram_available_gb": 0,
+    "cpu_percent": 0, "cpu_freq_mhz": 0, "cpu_temp_c": 0, "cpu_power_w": 0.0,
+    "ram_percent": 0, "ram_total_gb": 0, "ram_available_gb": 0, "ram_used_gb": 0,
     "gpu_power_w": 0.0, "gpu_memory_used_mb": 0, "gpu_memory_total_mb": 0, "gpu_temperature": 0,
 }
 
+def _query_cpu_temp_wmi():
+    """尝试用 PowerShell 查 CPU 温度（MSAcpi_ThermalZoneTemperature）。桌面 CPU 多数不支持，返回 0。"""
+    try:
+        cmd = ["powershell", "-NoProfile", "-Command",
+               "Get-CimInstance MSAcpi_ThermalZoneTemperature -Namespace root/wmi | Select-Object -First 1 -ExpandProperty CurrentTemperature"]
+        r = subprocess.run(cmd, capture_output=True, text=True, timeout=5)
+        if r.returncode == 0 and r.stdout.strip():
+            raw = int(r.stdout.strip())
+            if 2000 < raw < 5000:
+                return round((raw - 2732) / 10.0, 1)
+    except: pass
+    return 0
+
 def _monitor_loop():
     """Background thread: samples CPU/RAM/GPU every ~2s."""
-    kernel32 = ctypes.windll.kernel32
+    if not _HAS_PSUTIL:
+        return
+    # 第一次调用 cpu_percent(interval=None) 启动基线采样
+    psutil.cpu_percent(interval=None)
     while True:
         try:
-            # CPU usage via GetSystemTimes (two samples, 1s apart)
-            idle1, kern1, user1 = _FILETIME(), _FILETIME(), _FILETIME()
-            idle2, kern2, user2 = _FILETIME(), _FILETIME(), _FILETIME()
-            kernel32.GetSystemTimes(ctypes.byref(idle1), ctypes.byref(kern1), ctypes.byref(user1))
-            time.sleep(1)
-            kernel32.GetSystemTimes(ctypes.byref(idle2), ctypes.byref(kern2), ctypes.byref(user2))
-            idle = _ft64(idle2) - _ft64(idle1)
-            kern = _ft64(kern2) - _ft64(kern1)
-            user = _ft64(user2) - _ft64(user1)
-            total = kern + user
-            if total > 0:
-                _monitor_state["cpu_percent"] = int((1 - idle / total) * 100)
+            # CPU 使用率（psutil 自带非阻塞采样，跨平台准）
+            _monitor_state["cpu_percent"] = int(psutil.cpu_percent(interval=None))
+            # CPU 频率
+            try:
+                f = psutil.cpu_freq()
+                if f and f.current: _monitor_state["cpu_freq_mhz"] = int(f.current)
+            except: pass
         except: pass
         try:
-            # RAM via GlobalMemoryStatusEx
-            m = _MEMORYSTATUSEX()
-            m.dwLength = ctypes.sizeof(_MEMORYSTATUSEX)
-            ctypes.windll.kernel32.GlobalMemoryStatusEx(ctypes.byref(m))
-            _monitor_state["ram_percent"] = m.dwMemoryLoad
-            _monitor_state["ram_total_gb"] = round(m.ullTotalPhys / (1024**3), 1)
-            _monitor_state["ram_available_gb"] = round(m.ullAvailPhys / (1024**3), 1)
+            # RAM（psutil.virtual_memory 比 GlobalMemoryStatusEx 更准）
+            m = psutil.virtual_memory()
+            _monitor_state["ram_percent"] = m.percent
+            _monitor_state["ram_total_gb"] = round(m.total / (1024**3), 1)
+            _monitor_state["ram_available_gb"] = round(m.available / (1024**3), 1)
+            _monitor_state["ram_used_gb"] = round(m.used / (1024**3), 1)
+        except: pass
+        try:
+            # CPU 温度（每 10s 查一次 WMI，避免开销）
+            if int(time.time()) % 10 < 2:
+                t = _query_cpu_temp_wmi()
+                if t > 0: _monitor_state["cpu_temp_c"] = t
         except: pass
         try:
             # GPU power / memory used / temperature via nvidia-smi
@@ -379,12 +402,17 @@ def _monitor_loop():
                     try: _monitor_state["gpu_temperature"] = int(parts[3])
                     except: pass
         except: pass
+        time.sleep(2)
 
 def _start_monitor_thread():
     t = threading.Thread(target=_monitor_loop, daemon=True)
     t.start()
 
 def detect_system_ram():
+    if _HAS_PSUTIL:
+        try:
+            return round(psutil.virtual_memory().total / (1024**3), 1)
+        except: pass
     try:
         m = _MEMORYSTATUSEX()
         m.dwLength = ctypes.sizeof(_MEMORYSTATUSEX)
@@ -952,7 +980,7 @@ async def health():
 @app.get("/api/quick")
 async def quick_status():
     return {
-        "status": "ok", "version": "3.3.2",
+        "status": "ok", "version": "3.3.3",
         "gpu": detect_gpu_fast(), "models": detect_models_fast(),
         "conda": cached_find_conda(), "mineru": cached_detect_mineru_env(),
         "cpu": detect_cpu_info(), "ram_total_gb": detect_system_ram(),
