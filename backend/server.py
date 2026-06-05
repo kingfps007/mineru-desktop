@@ -341,11 +341,37 @@ _monitor_state = {
 }
 
 def _query_cpu_temp_wmi():
-    """尝试用 PowerShell 查 CPU 温度（MSAcpi_ThermalZoneTemperature）。桌面 CPU 多数不支持，返回 0。"""
+    """查 CPU 温度。优先用 Win32_PerfRawData_Counters_ThermalZoneInformation（不需要管理员权限），
+    失败回退到 MSAcpi_ThermalZoneTemperature（需要管理员）。
+    Temperature 单位是 10×°C（如 345 = 34.5°C），HighPrecisionTemperature 是 100×°C。"""
+    # 方案 1：性能计数器（不需要管理员，所有 Win10/11 都有）
     try:
         cmd = ["powershell", "-NoProfile", "-Command",
-               "Get-CimInstance MSAcpi_ThermalZoneTemperature -Namespace root/wmi | Select-Object -First 1 -ExpandProperty CurrentTemperature"]
+               "(Get-CimInstance Win32_PerfRawData_Counters_ThermalZoneInformation | "
+               "Where-Object { $_.Temperature -gt 0 } | "
+               "Select-Object -First 1 -ExpandProperty HighPrecisionTemperature)"]
         r = subprocess.run(cmd, capture_output=True, text=True, timeout=5)
+        if r.returncode == 0 and r.stdout.strip():
+            raw = int(r.stdout.strip())
+            if 1000 < raw < 10000:  # 10°C - 100°C
+                return round(raw / 100.0, 1)
+        # 回退到 Temperature 字段（精度低，10×°C）
+        cmd2 = ["powershell", "-NoProfile", "-Command",
+                "(Get-CimInstance Win32_PerfRawData_Counters_ThermalZoneInformation | "
+                "Where-Object { $_.Temperature -gt 0 } | "
+                "Select-Object -First 1 -ExpandProperty Temperature)"]
+        r = subprocess.run(cmd2, capture_output=True, text=True, timeout=5)
+        if r.returncode == 0 and r.stdout.strip():
+            raw = int(r.stdout.strip())
+            if 100 < raw < 1000:  # 10°C - 100°C
+                return round(raw / 10.0, 1)
+    except: pass
+    # 方案 2：ACPI 接口（需管理员，桌面 CPU 多数不支持）
+    try:
+        cmd3 = ["powershell", "-NoProfile", "-Command",
+                "Get-CimInstance MSAcpi_ThermalZoneTemperature -Namespace root/wmi | "
+                "Select-Object -First 1 -ExpandProperty CurrentTemperature"]
+        r = subprocess.run(cmd3, capture_output=True, text=True, timeout=5)
         if r.returncode == 0 and r.stdout.strip():
             raw = int(r.stdout.strip())
             if 2000 < raw < 5000:
@@ -986,12 +1012,12 @@ class ConfigData(BaseModel):
 
 @app.get("/api/health")
 async def health():
-    return {"status": "ok", "version": "3.3.2"}
+    return {"status": "ok", "version": "3.3.5"}
 
 @app.get("/api/quick")
 async def quick_status():
     return {
-        "status": "ok", "version": "3.3.4",
+        "status": "ok", "version": "3.3.5",
         "gpu": detect_gpu_fast(), "models": detect_models_fast(),
         "conda": cached_find_conda(), "mineru": cached_detect_mineru_env(),
         "cpu": detect_cpu_info(), "ram_total_gb": detect_system_ram(),

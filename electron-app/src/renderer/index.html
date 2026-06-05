@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>MinerU Desktop v3.3.4</title>
+<title>MinerU Desktop v3.3.5</title>
 <style>
 :root {
   --bg: #ffffff; --surface: #f5f7fa; --overlay: #e8ecf1;
@@ -417,6 +417,8 @@ tr:hover td { background: var(--surface); }
           <div class="card-subtitle" style="line-height:1.8">
             MinerU Desktop 是一款基于 MinerU 的 PDF 解析工具，支持批量解析和 Word 文档生成。
             <br><br><b>版本更新日志</b>:
+            <br>• <b>v3.3.5</b> (2026-06-05) - 🌡 CPU 温度改用 Win32_PerfRawData_Counters_ThermalZoneInformation（不需管理员权限，精度 0.01°C）
+            <br>• <b>v3.3.4</b> (2026-06-05) - 📊 状态栏 GPU 改用使用率(%)替代固定功率(W)；仪表盘 GPU 加显存带宽%与功率上限
             <br>• <b>v3.3.3</b> (2026-06-05) - 📊 仪表盘重构（系统状态+实时监控卡，删除与向导重复的检查）；监控数据用 psutil 修复精度；状态栏+仪表盘加 CPU 频率/温度
             <br>• <b>v3.3.2</b> (2026-06-05) - 📊 状态栏全宽实时监控 CPU/RAM/GPU 功率；环境总览加 CPU/RAM 评估；预警急停（RAM>95%/CPU>98% 自动暂停）
             <br>• <b>v3.3.1</b> (2026-06-05) - 🔧 修复 Token 验证 404（改用 /api/v4/extract/task）；环境总览加 GPU/显存建议；云端结果字段适配 full_zip_url
@@ -458,7 +460,7 @@ tr:hover td { background: var(--surface); }
     <span id="statusProgress" style="display:none;flex:1;max-width:200px;height:6px;background:var(--overlay);border-radius:3px;overflow:hidden"><div id="statusProgressFill" style="height:100%;background:var(--accent);width:0%;transition:width 0.3s"></div></span>
   </div>
   <div class="statusbar-right">
-    <span id="versionInfo">MinerU Desktop v3.3.4</span>
+    <span id="versionInfo">MinerU Desktop v3.3.5</span>
   </div>
 </div>
 
