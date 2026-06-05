@@ -1012,12 +1012,12 @@ class ConfigData(BaseModel):
 
 @app.get("/api/health")
 async def health():
-    return {"status": "ok", "version": "3.3.5"}
+    return {"status": "ok", "version": "3.3.6"}
 
 @app.get("/api/quick")
 async def quick_status():
     return {
-        "status": "ok", "version": "3.3.5",
+        "status": "ok", "version": "3.3.6",
         "gpu": detect_gpu_fast(), "models": detect_models_fast(),
         "conda": cached_find_conda(), "mineru": cached_detect_mineru_env(),
         "cpu": detect_cpu_info(), "ram_total_gb": detect_system_ram(),

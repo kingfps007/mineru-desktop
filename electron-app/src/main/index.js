@@ -9,6 +9,13 @@ let backendProcess = null;
 const BACKEND_PORT = 18766;
 const BACKEND_STARTUP_TIMEOUT_MS = 30000;  // 30s 超时
 
+// ── Windows 任务栏 / 任务管理器显示名（必须尽早设置）──
+// 不设置的话任务栏图标是 Electron 默认，任务管理器显示 "Electron"
+app.setName('MinerU Desktop');
+app.setAppUserModelId('com.mineru.desktop');
+
+// ── 应用图标（任务栏 + 窗口标题栏 + Alt-Tab）──
+const APP_ICON = path.join(__dirname, '..', '..', 'build', 'icon.ico');
 // ── 查找 Python 解释器 ──
 function findPython() {
   const candidates = [
@@ -119,6 +126,7 @@ function createWindow() {
     title: 'MinerU Desktop',
     backgroundColor: '#ffffff',
     show: false,  // 先不显示，加载完成再显示（避免白屏闪烁）
+    icon: fs.existsSync(APP_ICON) ? APP_ICON : undefined,  // 任务栏图标
     webPreferences: {
       preload: path.join(__dirname, '..', 'preload', 'index.js'),
       contextIsolation: true,
