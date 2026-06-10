@@ -58,7 +58,7 @@ PROJECT_ROOT = Path(__file__).resolve().parent.parent
 CONFIG_PATH = Path.home() / "mineru_desktop_config.json"
 DEFAULT_PORT = 18766
 MAX_PARSE_TIMEOUT = 600
-GPU_TEMP_PAUSE_THRESHOLD = 70
+GPU_TEMP_PAUSE_THRESHOLD = 99  # 实际不使用温度暂停（用户反馈内存占用不导致卡顿）
 GPU_TEMP_PAUSE_SECONDS = 30
 # v3.3.1 回退到 3.1.2 策略：BATCH_SIZE=10 已被用户在 300+ 篇验证（只崩 1 次），
 # 我 v3.2.5 自作主张改成 1 是错的——每篇重新加载模型多花 5-10s。
