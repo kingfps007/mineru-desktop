@@ -1,6 +1,6 @@
 {
   "name": "mineru-desktop",
-  "version": "3.3.9",
+  "version": "3.4.0",
   "description": "MinerU Desktop — Zotero生态 PDF 批量解析 & Markdown 转 Word",
   "author": "MinerU Desktop",
   "main": "src/main/index.js",
@@ -34,7 +34,9 @@
       "target": [
         {
           "target": "portable",
-          "arch": ["x64"]
+          "arch": [
+            "x64"
+          ]
         }
       ],
       "icon": "build/icon.ico",
