@@ -642,14 +642,7 @@ async function refreshMonitor() {
       else dashTask.innerHTML = '<span style="color:var(--dim)">○ 空闲</span>';
     }
 
-    // 急停：RAM > 95% 或 CPU > 98% 自动暂停
-    if (_parseRunning && (ramPct > 95 || cpuPct > 98)) {
-      const now = Date.now();
-      if (now - _lastEmergencyStop > 30000) {
-        _lastEmergencyStop = now;
-        emergencyStop(ramPct > 95 ? `内存使用率 ${ramPct}% 过高` : `CPU 使用率 ${cpuPct}% 过高`);
-      }
-    }
+    // 急停已禁用——CPU/内存高占用属正常解析行为
   } catch(e) {}
 }
 

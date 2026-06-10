@@ -60,11 +60,9 @@ DEFAULT_PORT = 18766
 MAX_PARSE_TIMEOUT = 600
 GPU_TEMP_PAUSE_THRESHOLD = 99  # 实际不使用温度暂停（用户反馈内存占用不导致卡顿）
 GPU_TEMP_PAUSE_SECONDS = 30
-# v3.3.1 回退到 3.1.2 策略：BATCH_SIZE=10 已被用户在 300+ 篇验证（只崩 1 次），
-# 我 v3.2.5 自作主张改成 1 是错的——每篇重新加载模型多花 5-10s。
-# 此处保留 get_batch_size() 供用户在「本地配置」微调（仅显存 ≥16GB 可上调到 3-5）。
-BATCH_SIZE = 10
-MAX_RETRIES = 3
+# BATCH_SIZE 设大值：一次任务加载一次模型，避免反复加载磁盘读写
+BATCH_SIZE = 200
+MAX_RETRIES = 5
 
 def get_batch_size():
     """v3.2.5 新增：从配置读取 BATCH_SIZE，允许用户运行时调整"""
