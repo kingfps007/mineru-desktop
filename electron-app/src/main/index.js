@@ -107,7 +107,6 @@ function startBackend() {
 function stopBackend() {
   if (backendProcess) {
     try {
-      // Windows 强制终止（taskkill /F /T 杀进程树）
       if (process.platform === 'win32' && backendProcess.pid) {
         spawn('taskkill', ['/F', '/T', '/PID', String(backendProcess.pid)], { windowsHide: true });
       } else {
@@ -116,6 +115,12 @@ function stopBackend() {
     } catch(e) {}
     backendProcess = null;
   }
+  // 额外清理残留的 mineru.exe 子进程（Python 已退出但子进程可能脱离）
+  try {
+    if (process.platform === 'win32') {
+      spawn('taskkill', ['/F', '/IM', 'mineru.exe'], { windowsHide: true });
+    }
+  } catch(e) {}
 }
 
 // ── 主窗口 ──
