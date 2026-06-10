@@ -32,7 +32,7 @@ cd electron-app && npm run build
 
 ## 当前版本
 
-**v3.4.0** (2026-06-10) — 移除 Word 生成功能（移至论文项目），exe 放根目录。
+**v3.4.0** (2026-06-11) — 移除Word生成；禁用全部暂停；BATCH_SIZE=200；关窗口清理mineru残留。
 
 ## 许可证
 

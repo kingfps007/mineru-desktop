@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-MinerU Desktop v3.0.4 — Python Backend API Server
+MinerU Desktop v3.4.0 — Python Backend API Server
 FastAPI server providing REST APIs for GPU detection, setup wizard,
 Zotero JSON parsing, batch PDF processing, Markdown-to-Word generation,
 and MinerU Cloud API integration.
@@ -829,7 +829,7 @@ class SetupRunner:
 # 4. FastAPI Application
 # ═══════════════════════════════════════════════════════════
 
-app = FastAPI(title="MinerU Desktop v3.0.4 Backend", version="3.0.4")
+app = FastAPI(title="MinerU Desktop v3.4.0 Backend", version="3.4.0")
 app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"])
 
 async def broadcast_log(msg: str):
@@ -865,12 +865,12 @@ class ConfigData(BaseModel):
 
 @app.get("/api/health")
 async def health():
-    return {"status": "ok", "version": "3.3.9"}
+    return {"status": "ok", "version": "3.4.0"}
 
 @app.get("/api/quick")
 async def quick_status():
     return {
-        "status": "ok", "version": "3.3.9",
+        "status": "ok", "version": "3.4.0",
         "gpu": detect_gpu_fast(), "models": detect_models_fast(),
         "conda": cached_find_conda(), "mineru": cached_detect_mineru_env(),
         "cpu": detect_cpu_info(), "ram_total_gb": detect_system_ram(),

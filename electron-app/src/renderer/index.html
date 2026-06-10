@@ -424,10 +424,11 @@ tr:hover td { background: var(--surface); }
       <!-- 关于页面 -->
       <div class="page hidden" id="pg-about">
         <div class="card">
-          <div class="card-title">ℹ 关于 MinerU Desktop v3.3.9</div>
+          <div class="card-title">ℹ 关于 MinerU Desktop v3.4.0</div>
           <div class="card-subtitle" style="line-height:1.8">
             MinerU Desktop 是一款基于 MinerU 的 PDF 解析工具，支持批量解析和 Word 文档生成。
             <br><br><b>版本更新日志</b>:
+            <br>• <b>v3.4.0</b> (2026-06-11) - 🚀 移除Word生成（移至论文项目）；禁用全部暂停（GPU/CPU/RAM不中断）；BATCH_SIZE=200一次加载模型；关窗口清理mineru残留
             <br>• <b>v3.3.9</b> (2026-06-05) - 🌐 矿 API 加代理开关：解析页精准 API 配置区可勾选「启用代理」+ 填境外代理地址，绕过「regional regulations」区域限制（v3.3.8 直连仍受限时用）；导航「仪表盘」改名为「本地模型仪表盘」（云端用户可忽略此 tab）
             <br>• <b>v3.3.8</b> (2026-06-05) - 🌐 修复 API 验证 "regional regulations"：后端加 _NO_PROXY_OPENER 强制直连矿 API，绕过系统 HTTPS_PROXY 被中间设备拦截；titlebar 去除冗余版本号（statusbar 已显示）
 <br>• <b>v3.3.7</b> (2026-06-05) - 🔧 修复任务栏图标：icon.ico 路径加 process.resourcesPath（packaged 后在 resources/build/icon.ico）；token 验证返回详细错误（HTTP code + traceId + 后端 msg）便于诊断 "regional regulations" 等
@@ -473,7 +474,7 @@ tr:hover td { background: var(--surface); }
     <span id="statusProgress" style="display:none;flex:1;max-width:200px;height:6px;background:var(--overlay);border-radius:3px;overflow:hidden"><div id="statusProgressFill" style="height:100%;background:var(--accent);width:0%;transition:width 0.3s"></div></span>
   </div>
   <div class="statusbar-right">
-    <span id="versionInfo">MinerU Desktop v3.3.9</span>
+    <span id="versionInfo">MinerU Desktop v3.4.0</span>
   </div>
 </div>
 
