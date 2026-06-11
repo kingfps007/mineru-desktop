@@ -376,7 +376,7 @@ def extract_pdfs_from_folder(folder):
 # ═══════════ 解析 ═══════════
 def run_local_parse(pdfs, backend, output_dir, lang):
     total = len(pdfs)
-    BATCH = 20  # 保守分批，每批20篇
+    BATCH = 5   # 少量分批，防止 MemoryError
     batches = [pdfs[i:i+BATCH] for i in range(0, total, BATCH)]
     t0 = time.time()
 
