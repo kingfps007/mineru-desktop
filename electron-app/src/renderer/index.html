@@ -1,0 +1,1056 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MinerU Desktop v3.4.0</title>
+<style>
+:root {
+  --bg: #ffffff; --surface: #f5f7fa; --overlay: #e8ecf1;
+  --border: #d0d5dd; --dim: #6b7280; --fg: #111827;
+  --accent: #2563eb; --green: #16a34a; --yellow: #d97706;
+  --red: #dc2626; --white: #ffffff; --purple: #7c3aed;
+  --radius: 8px; --transition: 0.2s ease;
+}
+* { margin:0; padding:0; box-sizing:border-box; }
+body {
+  font-family: 'Segoe UI', 'Microsoft YaHei UI', sans-serif;
+  background: var(--bg); color: var(--fg); overflow: hidden;
+  height: 100vh; display: flex; flex-direction: column;
+}
+::-webkit-scrollbar { width: 6px; }
+::-webkit-scrollbar-track { background: var(--surface); }
+::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: var(--dim); }
+
+.titlebar {
+  display: flex; align-items: center; justify-content: space-between;
+  height: 36px; background: var(--surface); -webkit-app-region: drag;
+  padding: 0 8px; border-bottom: 1px solid var(--border);
+  user-select: none; -webkit-user-select: none;
+}
+.titlebar-left { display: flex; align-items: center; gap: 8px; padding-left: 8px; }
+.titlebar-logo { font-size: 14px; color: var(--accent); font-weight: bold; }
+.titlebar-logo span { color: var(--dim); font-size: 11px; font-weight: normal; }
+.titlebar-btns { display: flex; -webkit-app-region: no-drag; }
+.titlebar-btn {
+  width: 36px; height: 28px; display: flex; align-items: center; justify-content: center;
+  background: none; border: none; color: var(--dim); cursor: pointer; font-size: 16px;
+  border-radius: 4px; transition: var(--transition);
+}
+.titlebar-btn:hover { background: var(--overlay); color: var(--fg); }
+.titlebar-btn.close:hover { background: var(--red); color: white; }
+
+.app { display: flex; flex: 1; overflow: hidden; }
+.sidebar {
+  width: 180px; min-width: 180px; background: var(--surface); border-right: 1px solid var(--border);
+  display: flex; flex-direction: column; padding: 12px 8px;
+}
+.nav-item {
+  display: flex; align-items: center; gap: 10px; padding: 10px 12px; border-radius: var(--radius);
+  cursor: pointer; color: var(--fg); font-size: 13px; font-weight: 500; transition: var(--transition);
+  border: none; background: none; width: 100%; text-align: left;
+}
+.nav-item:hover:not(:disabled) { background: var(--overlay); color: var(--accent); }
+.nav-item.active { background: var(--overlay); color: var(--accent); font-weight: 700; }
+.nav-item:disabled { opacity: 0.4; cursor: not-allowed; }
+.nav-item .icon { font-size: 18px; width: 24px; text-align: center; }
+
+.main { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
+.content { flex: 1; overflow-y: auto; padding: 24px; }
+.statusbar {
+  display: flex; align-items: center; justify-content: space-between;
+  height: 32px; background: var(--surface); border-top: 1px solid var(--border);
+  padding: 0 12px; font-size: 11px; color: var(--dim); min-height: 32px;
+}
+.statusbar-left { display: flex; align-items: center; gap: 14px; flex: 1; min-width: 0; }
+.statusbar-right { display: flex; align-items: center; gap: 8px; white-space: nowrap; }
+.monitor-item { display: inline-flex; align-items: center; gap: 3px; }
+.monitor-val { font-weight: 600; }
+.monitor-warn { color: var(--yellow); }
+.monitor-danger { color: var(--red); font-weight: 700; }
+.monitor-ok { color: var(--green); }
+.status-dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; margin-right: 6px; }
+.status-dot.ok { background: var(--green); }
+.status-dot.warn { background: var(--yellow); }
+.status-dot.err { background: var(--red); }
+
+.card {
+  background: var(--white); border: 1px solid var(--border);
+  border-radius: var(--radius); padding: 20px; margin-bottom: 16px;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+}
+.card-title { font-size: 15px; font-weight: 700; color: var(--fg); margin-bottom: 12px; display: flex; align-items: center; gap: 8px; }
+.card-subtitle { font-size: 12px; color: var(--dim); margin-bottom: 16px; }
+
+.btn {
+  display: inline-flex; align-items: center; gap: 8px; padding: 8px 18px;
+  border-radius: var(--radius); border: 1px solid var(--border); cursor: pointer;
+  font-size: 13px; font-weight: 600; transition: var(--transition);
+  background: var(--white); color: var(--fg);
+}
+.btn:hover:not(:disabled) { background: var(--overlay); }
+.btn.primary { background: var(--accent); color: #fff; border-color: var(--accent); }
+.btn.primary:hover:not(:disabled) { background: #1d4ed8; }
+.btn.danger { background: var(--red); color: #fff; border-color: var(--red); }
+.btn.danger:hover:not(:disabled) { background: #b91c1c; }
+.btn.success { background: var(--green); color: #fff; border-color: var(--green); }
+.btn.cloud { background: var(--purple); color: #fff; border-color: var(--purple); }
+.btn.cloud:hover:not(:disabled) { background: #6d28d9; }
+.btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+input, select, textarea {
+  background: var(--white); border: 1px solid var(--border); border-radius: var(--radius);
+  padding: 8px 12px; color: var(--fg); font-size: 13px; font-family: inherit;
+  transition: var(--transition); outline: none;
+}
+input:focus, select:focus, textarea:focus { border-color: var(--accent); box-shadow: 0 0 0 2px rgba(37,99,235,0.15); }
+input:disabled, select:disabled { background: var(--surface); cursor: not-allowed; opacity: 0.6; }
+input::placeholder { color: var(--dim); }
+select { cursor: pointer; }
+
+.input-row { display: flex; align-items: center; gap: 8px; margin-bottom: 12px; }
+.input-row label { font-size: 13px; color: var(--fg); font-weight: 500; min-width: 80px; }
+.input-row input, .input-row select { flex: 1; }
+.input-row .label-narrow { min-width: 60px; }
+
+.progress-bar {
+  width: 100%; height: 6px; background: var(--overlay); border-radius: 3px; overflow: hidden;
+}
+.progress-fill {
+  height: 100%; background: var(--accent); border-radius: 3px;
+  transition: width 0.3s ease; width: 0%;
+}
+
+.log-panel {
+  background: #f9fafb; border: 1px solid var(--border); border-radius: var(--radius);
+  padding: 12px; font-family: 'Cascadia Code', 'Consolas', monospace;
+  font-size: 11px; color: var(--fg); height: 200px; overflow-y: auto;
+  white-space: pre-wrap; word-break: break-all; line-height: 1.5;
+  user-select: text; -webkit-user-select: text;
+}
+
+table { width: 100%; border-collapse: collapse; font-size: 12px; }
+th {
+  text-align: left; padding: 10px 12px; color: var(--dim); font-weight: 700;
+  border-bottom: 2px solid var(--border); font-size: 11px; text-transform: uppercase;
+  letter-spacing: 0.5px; background: var(--surface);
+}
+td { padding: 8px 12px; border-bottom: 1px solid var(--overlay); color: var(--fg); }
+tr:hover td { background: var(--surface); }
+.checkbox-cell { width: 40px; text-align: center; }
+.checkbox-cell input[type="checkbox"] { width: 16px; height: 16px; cursor: pointer; accent-color: var(--accent); }
+.status-badge {
+  display: inline-block; padding: 2px 10px; border-radius: 12px; font-size: 11px; font-weight: 600;
+}
+.status-badge.done { background: #dcfce7; color: #166534; }
+.status-badge.pending { background: #fef3c7; color: #92400e; }
+.status-badge.nopdf { background: #fee2e2; color: #991b1b; }
+.status-badge.cloud { background: #ede9fe; color: #5b21b6; }
+
+.gpu-temp { font-size: 12px; font-weight: 700; }
+
+.step-list { display: flex; flex-direction: column; gap: 12px; }
+.step-item {
+  display: flex; align-items: center; gap: 14px; padding: 14px 16px;
+  background: var(--white); border-radius: var(--radius); border: 1px solid var(--border);
+}
+.step-num {
+  width: 32px; height: 32px; border-radius: 50%; display: flex;
+  align-items: center; justify-content: center; font-weight: bold; font-size: 14px;
+  background: var(--overlay); color: var(--dim); flex-shrink: 0;
+}
+.step-item.done .step-num { background: var(--green); color: #fff; }
+.step-item.active .step-num { background: var(--accent); color: #fff; }
+.step-info { flex: 1; }
+.step-name { font-size: 13px; font-weight: 700; color: var(--fg); }
+.step-desc { font-size: 11px; color: var(--dim); margin-top: 2px; }
+
+.hidden { display: none !important; }
+.flex-row { display: flex; gap: 12px; align-items: center; }
+.flex-col { display: flex; flex-direction: column; gap: 8px; }
+.mt-8 { margin-top: 8px; } .mt-12 { margin-top: 12px; } .mt-16 { margin-top: 16px; }
+.mb-8 { margin-bottom: 8px; } .mb-12 { margin-bottom: 12px; }
+.gap-8 { gap: 8px; } .gap-12 { gap: 12px; }
+.flex-1 { flex: 1; }
+.w-full { width: 100%; }
+.text-center { text-align: center; }
+.text-dim { color: var(--dim); font-size: 12px; }
+.text-mono { font-family: 'Consolas', monospace; }
+.grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+.grid-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
+.check-row { display: flex; align-items: center; gap: 10px; padding: 8px 0; font-size: 13px; }
+.check-icon { font-size: 16px; width: 20px; text-align: center; flex-shrink: 0; }
+.check-icon.ok { color: var(--green); }
+.check-icon.warn { color: var(--yellow); }
+.check-icon.err { color: var(--red); }
+.check-text { flex: 1; word-break: break-all; }
+
+.parse-mode-tabs { display: flex; gap: 4px; margin-bottom: 12px; border-bottom: 1px solid var(--border); }
+.parse-mode-tab {
+  padding: 8px 16px; background: none; border: none; cursor: pointer; font-size: 13px;
+  color: var(--dim); border-bottom: 2px solid transparent; transition: var(--transition);
+}
+.parse-mode-tab.active { color: var(--accent); border-bottom-color: var(--accent); font-weight: 700; }
+.parse-mode-tab:hover:not(.active) { color: var(--fg); }
+.parse-mode-tab.cloud.active { color: var(--purple); border-bottom-color: var(--purple); }
+.mode-info {
+  background: var(--surface); border-radius: var(--radius); padding: 10px 12px;
+  font-size: 12px; color: var(--dim); margin-bottom: 12px; line-height: 1.6;
+}
+.mode-info b { color: var(--fg); }
+.mode-info .limit { color: var(--yellow); }
+</style>
+</head>
+<body>
+
+<div class="titlebar">
+  <div class="titlebar-left">
+    <span class="titlebar-logo">⬡ MinerU Desktop</span>
+  </div>
+  <div class="titlebar-btns">
+    <button class="titlebar-btn" onclick="electronAPI.minimize()">─</button>
+    <button class="titlebar-btn" onclick="electronAPI.maximize()">□</button>
+    <button class="titlebar-btn close" onclick="electronAPI.close()">✕</button>
+  </div>
+</div>
+
+<div class="app">
+  <div class="sidebar" id="sidebar">
+    <button class="nav-item active" data-page="dashboard" id="nav-dashboard">
+      <span class="icon">📊</span> 本地模型仪表盘
+    </button>
+    <button class="nav-item" data-page="parse" id="nav-parse">
+      <span class="icon">📄</span> 批量解析
+    </button>
+    <button class="nav-item" data-page="word" id="nav-word" style="display:none">
+      <span class="icon">📝</span> 生成 Word
+    </button>
+    <div style="flex:1"></div>
+    <button class="nav-item" data-page="about" id="nav-about">
+      <span class="icon">ℹ</span> 关于
+    </button>
+  </div>
+
+  <div class="main">
+    <div class="content" id="content">
+      <!-- 仪表盘 -->
+      <div class="page" id="pg-dashboard">
+        <div class="card" id="envStatusCard" style="border-left:3px solid var(--accent)">
+          <div class="card-title" id="envStatusTitle">📊 系统状态</div>
+          <div id="envStatusText" class="card-subtitle" style="line-height:1.8">检测中...</div>
+        </div>
+
+        <div class="card" id="monitorCard">
+          <div class="card-title">🖥 实时监控</div>
+          <div class="grid-2" style="gap:16px">
+            <div>
+              <div style="font-size:12px;color:var(--dim);margin-bottom:6px">CPU</div>
+              <div id="dashCpu" style="font-size:14px;font-weight:600">--</div>
+              <div style="font-size:11px;color:var(--dim);margin-top:4px">频率/温度/功率</div>
+            </div>
+            <div>
+              <div style="font-size:12px;color:var(--dim);margin-bottom:6px">内存</div>
+              <div id="dashRam" style="font-size:14px;font-weight:600">--</div>
+              <div style="font-size:11px;color:var(--dim);margin-top:4px">使用率 / 可用量</div>
+            </div>
+            <div>
+              <div style="font-size:12px;color:var(--dim);margin-bottom:6px">GPU</div>
+              <div id="dashGpu" style="font-size:14px;font-weight:600">--</div>
+              <div style="font-size:11px;color:var(--dim);margin-top:4px">功率/温度/显存</div>
+            </div>
+            <div>
+              <div style="font-size:12px;color:var(--dim);margin-bottom:6px">任务</div>
+              <div id="dashTask" style="font-size:14px;font-weight:600">--</div>
+              <div style="font-size:11px;color:var(--dim);margin-top:4px">当前运行状态</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="card" id="setupCard">
+          <div class="card-title">⚙ 安装向导</div>
+          <div class="card-subtitle">每一步都需手动确认，已完成的步骤自动跳过</div>
+          <div class="step-list" id="setupSteps"></div>
+          <div class="progress-bar mt-12"><div class="progress-fill" id="setupProgressBar"></div></div>
+          <div class="text-dim mt-8" id="setupProgressText"></div>
+          <div class="log-panel mt-12" id="logPanelS"></div>
+        </div>
+      </div>
+
+      <!-- 批量解析页面（设置嵌入这里） -->
+      <div class="page hidden" id="pg-parse">
+        <div class="card">
+          <div class="card-title">📄 批量解析</div>
+          <div class="card-subtitle">从 Zotero BetterBibTeX 导出 JSON 或直接选文件，调用 MinerU 解析为 Markdown + 图片</div>
+          <div class="flex-row gap-12 mb-12">
+            <button class="btn primary" onclick="importZoteroJSON()">📥 导入 Zotero JSON</button>
+            <button class="btn" onclick="importDirectFiles()">📂 直接选文件</button>
+          </div>
+          <div id="importStatus" class="text-dim"></div>
+          <div class="mt-12" id="refTableContainer" style="max-height:400px;overflow-y:auto"></div>
+          <div id="directFileTable" style="display:none"></div>
+        </div>
+
+        <!-- 解析设置：3 个 Tab（本地 / 免费云端 / 精准云端） -->
+        <div class="card">
+          <div class="card-title">⚙ 解析设置（按当前任务选择）</div>
+          <div class="parse-mode-tabs">
+            <button class="parse-mode-tab active" data-mode="local" onclick="switchParseMode('local')">💻 本地解析</button>
+            <button class="parse-mode-tab cloud" data-mode="agent_free" onclick="switchParseMode('agent_free')">☁ 免 API（轻量）</button>
+            <button class="parse-mode-tab cloud" data-mode="precision_api" onclick="switchParseMode('precision_api')">☁ 精准 API（需 Token）</button>
+          </div>
+
+          <div id="modeInfo" class="mode-info"></div>
+
+          <!-- 输出目录（所有模式都需要） -->
+          <div class="input-row">
+            <label>输出目录</label>
+            <input id="outputDir" placeholder="解析结果保存到...">
+            <button class="btn" onclick="pickOutputDir()">浏览</button>
+          </div>
+
+          <!-- 本地：选择引擎 + 语言 -->
+          <div id="localConfig">
+            <div class="input-row">
+              <label>本地引擎</label>
+              <select id="backend">
+                <option value="vlm-auto-engine">VLM Auto（推荐，GPU 加速）</option>
+                <option value="pipeline">Pipeline（稳定，CPU 友好）</option>
+                <option value="hybrid-auto-engine">Hybrid Auto（自动切换）</option>
+              </select>
+            </div>
+            <div class="input-row">
+              <label>语言</label>
+              <select id="lang">
+                <option value="en">English</option>
+                <option value="ch">中文</option>
+              </select>
+            </div>
+          </div>
+
+          <!-- 免费 API：无需配置（自动用 IP） -->
+          <div id="agentFreeConfig" class="hidden">
+            <div class="input-row">
+              <label>语言</label>
+              <select id="langAgent">
+                <option value="en">English</option>
+                <option value="ch">中文</option>
+              </select>
+            </div>
+          </div>
+
+          <!-- 精准 API：Token + 模型版本 -->
+          <div id="precisionApiConfig" class="hidden">
+            <div class="input-row">
+              <label>API Token</label>
+              <input id="parseApiToken" type="password" placeholder="在 mineru.net/apiManage 获取">
+              <button class="btn" onclick="validateApiToken()">验证</button>
+            </div>
+            <!-- v3.3.9 代理设置：矿 API 按 IP 区域返回 regional regulations，勾选后用代理绕开 -->
+            <div class="input-row">
+              <label style="display:flex;align-items:center;gap:6px;cursor:pointer">
+                <input type="checkbox" id="parseApiUseProxy" onchange="saveApiProxyConfig()">
+                启用代理（访问矿 API 时使用）
+              </label>
+            </div>
+            <div class="input-row">
+              <label>代理地址</label>
+              <input id="parseApiProxyUrl" type="text" placeholder="如 http://127.0.0.1:7897（境外代理更有效）" oninput="saveApiProxyConfig()">
+            </div>
+            <div class="input-row">
+              <label>模型版本</label>
+              <select id="cloudModel">
+                <option value="vlm">VLM（推荐，复杂文档）</option>
+                <option value="pipeline">Pipeline（标准，CPU 友好）</option>
+                <option value="MinerU-HTML">MinerU-HTML（HTML 文档）</option>
+              </select>
+            </div>
+            <div class="input-row">
+              <label>语言</label>
+              <select id="langApi">
+                <option value="en">English</option>
+                <option value="ch">中文</option>
+              </select>
+            </div>
+            <div class="text-dim mt-8" id="apiValidateMsg"></div>
+          </div>
+
+          <div class="flex-row mt-12">
+            <button id="btnSelectAll" class="btn" onclick="toggleSelectAll()">☑ 全选</button>
+            <button id="btnParse" class="btn primary" onclick="startParse()" disabled>▶ 开始解析</button>
+            <button id="btnCancel" class="btn danger" onclick="cancelParse()" disabled>⏹ 取消</button>
+          </div>
+          <div class="mt-12">
+            <div class="progress-bar"><div class="progress-fill" id="parseProgressBar"></div></div>
+            <div class="text-dim mt-8" id="parseProgressText"></div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-title">📋 解析日志</div>
+          <div class="log-panel" id="logPanelA"></div>
+        </div>
+      </div>
+
+      <!-- 生成 Word 页面（设置嵌入这里） -->
+      <div class="page hidden" id="pg-word">
+        <div class="card">
+          <div class="card-title">📝 Markdown → Zotero Word</div>
+          <div class="card-subtitle">将 Markdown 稿件转为 Word，Zotero 引用标记自动转为 Word 域代码</div>
+          <div class="input-row">
+            <label>Markdown</label>
+            <input id="mdPath" placeholder="选择 .md 文件">
+            <button class="btn" onclick="pickMDFile()">浏览</button>
+          </div>
+          <div class="input-row">
+            <label>Zotero JSON</label>
+            <input id="zotJsonPath" placeholder="选择 BBT 导出的 JSON">
+            <button class="btn" onclick="pickJsonFile()">浏览</button>
+          </div>
+          <div class="input-row">
+            <label>Word 输出</label>
+            <input id="docxOutputDir" placeholder="默认 = MD 文件所在目录">
+            <button class="btn" onclick="pickDocxOutputDir()">浏览</button>
+          </div>
+          <button id="btnGenerateDocx" class="btn primary mt-12" onclick="generateDocx()" disabled>▶ 生成 Word 文档</button>
+          <div class="mt-12 text-dim" id="docxProgressText"></div>
+        </div>
+        <div class="card">
+          <div class="card-title">📋 生成日志</div>
+          <div class="log-panel" id="logPanelB"></div>
+        </div>
+      </div>
+
+      <!-- 关于页面 -->
+      <div class="page hidden" id="pg-about">
+        <div class="card">
+          <div class="card-title">ℹ 关于 MinerU Desktop v3.4.0</div>
+          <div class="card-subtitle" style="line-height:1.8">
+            MinerU Desktop 是一款基于 MinerU 的 PDF 解析工具，支持批量解析和 Word 文档生成。
+            <br><br><b>版本更新日志</b>:
+            <br>• <b>v3.4.0</b> (2026-06-11) - 🚀 移除Word生成（移至论文项目）；禁用全部暂停（GPU/CPU/RAM不中断）；BATCH_SIZE=200一次加载模型；关窗口清理mineru残留
+            <br>• <b>v3.3.9</b> (2026-06-05) - 🌐 矿 API 加代理开关：解析页精准 API 配置区可勾选「启用代理」+ 填境外代理地址，绕过「regional regulations」区域限制（v3.3.8 直连仍受限时用）；导航「仪表盘」改名为「本地模型仪表盘」（云端用户可忽略此 tab）
+            <br>• <b>v3.3.8</b> (2026-06-05) - 🌐 修复 API 验证 "regional regulations"：后端加 _NO_PROXY_OPENER 强制直连矿 API，绕过系统 HTTPS_PROXY 被中间设备拦截；titlebar 去除冗余版本号（statusbar 已显示）
+<br>• <b>v3.3.7</b> (2026-06-05) - 🔧 修复任务栏图标：icon.ico 路径加 process.resourcesPath（packaged 后在 resources/build/icon.ico）；token 验证返回详细错误（HTTP code + traceId + 后端 msg）便于诊断 "regional regulations" 等
+            <br>• <b>v3.3.4</b> (2026-06-05) - 📊 状态栏 GPU 改用使用率(%)替代固定功率(W)；仪表盘 GPU 加显存带宽%与功率上限
+            <br>• <b>v3.3.3</b> (2026-06-05) - 📊 仪表盘重构（系统状态+实时监控卡，删除与向导重复的检查）；监控数据用 psutil 修复精度；状态栏+仪表盘加 CPU 频率/温度
+            <br>• <b>v3.3.2</b> (2026-06-05) - 📊 状态栏全宽实时监控 CPU/RAM/GPU 功率；环境总览加 CPU/RAM 评估；预警急停（RAM>95%/CPU>98% 自动暂停）
+            <br>• <b>v3.3.1</b> (2026-06-05) - 🔧 修复 Token 验证 404（改用 /api/v4/extract/task）；环境总览加 GPU/显存建议；云端结果字段适配 full_zip_url
+            <br>• <b>v3.3.0</b> (2026-06-05) - 🎨 仪表盘精简为 2 卡片，打开自动扫描，清理内存全自动
+            <br>• <b>v3.2.9</b> (2026-06-05) - 🧹 解析前后自动清理 GPU 显存
+            <br>• <b>v3.2.8</b> (2026-06-05) - 🐛 修复实际 BATCH_SIZE 为 1（get_batch_size 默认值错误）
+            <br>• <b>v3.2.7</b> (2026-06-05) - 🐛 修复中文文件名含尾部空格/特殊字符
+            <br>• <b>v3.2.6</b> (2026-06-05) - 🚨 紧急修复 v3.2.5 三大致命错误
+            <br>• <b>v3.2.5</b> (2026-06-05) - <b style="color:#e74c3c">已回退，请勿使用</b>
+            <br>• <b>v3.2.4</b> (2026-06-04) - 移除独立设置页（设置分散到各功能页面）；云端解析分两种：免 API（轻量，IP 限流，≤10MB/20 页）+ 精准 API（需 Token，支持 vlm/pipeline/MinerU-HTML，≤200MB/200 页）
+            <br>• <b>v3.2.3</b> - 主进程重写：等待后端端口就绪、taskkill /F /T 杀进程树
+            <br>• <b>v3.2.2</b> - 修复 conda 显示 bug、配置向导集成到仪表盘
+            <br>• <b>v3.2.1</b> - 修复清理内存卡死、环境检查综合判断
+            <br>• <b>v3.2.0</b> - UI 重构：集成仪表盘与安装向导
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-title">☁ 云端解析说明</div>
+          <div class="card-subtitle" style="line-height:1.8">
+            <b>免 API（Agent Lightweight）</b>：无需注册，IP 限流。单文件 ≤10MB、≤20 页，输出 Markdown。<br>
+            适合：快速预览、轻量测试、Agent 工作流集成。
+            <br><br><b>精准 API（Precision Extract）</b>：需 mineru.net 申请 Token。模型可选 vlm / pipeline / MinerU-HTML。<br>
+            单文件 ≤200MB、≤200 页，≤200 文件批量，输出 ZIP（含 Markdown/JSON，可选 docx/html/latex）。<br>
+            适合：精准解析、复杂文档、批量生产。
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="statusbar">
+  <div class="statusbar-left">
+    <span><span class="status-dot ok" id="statusDot"></span><span id="statusText">就绪</span></span>
+    <span class="monitor-item" id="cpuMonitor">CPU: --</span>
+    <span class="monitor-item" id="ramMonitor">RAM: --</span>
+    <span class="monitor-item" id="gpuPowerMonitor">GPU: --</span>
+    <span id="modelStatus">模型: 检测中...</span>
+    <span id="statusProgress" style="display:none;flex:1;max-width:200px;height:6px;background:var(--overlay);border-radius:3px;overflow:hidden"><div id="statusProgressFill" style="height:100%;background:var(--accent);width:0%;transition:width 0.3s"></div></span>
+  </div>
+  <div class="statusbar-right">
+    <span id="versionInfo">MinerU Desktop v3.4.0</span>
+  </div>
+</div>
+
+<script>
+const API = {
+  base: '',
+  async init() {
+    try { this.base = `http://127.0.0.1:${await electronAPI.getBackendPort()}`; }
+    catch(e) { this.base = 'http://127.0.0.1:18766'; }
+  },
+  async fetch(path, opts = {}) {
+    const url = `${this.base}${path}`;
+    const res = await fetch(url, { headers: { 'Content-Type': 'application/json', ...opts.headers }, ...opts });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({ detail: res.statusText }));
+      throw new Error(err.detail || res.statusText);
+    }
+    return res.json();
+  },
+  get(path) { return this.fetch(path); },
+  post(path, body) { return this.fetch(path, { method: 'POST', body: JSON.stringify(body) }); },
+};
+
+let ws = null;
+let currentPage = 'dashboard';
+let references = [];
+let _pagesInited = {};
+let _parseMode = 'zotero';
+let _envReady = false;
+let _capabilityLevel = 'basic';
+let _parseMethod = 'local';
+let _savedApiToken = '';
+
+function initWS() {
+  try { ws = new WebSocket(`ws://127.0.0.1:${API.base.split(':').pop()}/ws/logs`);
+    ws.onmessage = (e) => addLog(e.data); ws.onclose = () => setTimeout(initWS, 2000); }
+  catch(e) {}
+}
+
+function addLog(msg) {
+  const panels = [
+    document.getElementById('logPanelA'),
+    document.getElementById('logPanelB'),
+    document.getElementById('logPanelS'),
+  ];
+  for (const panel of panels) {
+    if (!panel) continue;
+    const div = document.createElement('div');
+    div.textContent = msg;
+    if (msg.startsWith('✓')) div.style.color = '#16a34a';
+    else if (msg.startsWith('✗') || msg.startsWith('⚠')) div.style.color = '#dc2626';
+    else if (msg.startsWith('▶')) div.style.color = '#2563eb';
+    else if (msg.startsWith('☁')) div.style.color = '#7c3aed';
+    panel.appendChild(div);
+    panel.scrollTop = panel.scrollHeight;
+    while (panel.children.length > 500) panel.firstChild.remove();
+    break;
+  }
+}
+
+function updateStatus(text, dotType) {
+  document.getElementById('statusText').textContent = text;
+  const dot = document.getElementById('statusDot');
+  dot.className = 'status-dot';
+  if (dotType === 'ok') dot.classList.add('ok');
+  else if (dotType === 'warn') dot.classList.add('warn');
+  else if (dotType === 'err') dot.classList.add('err');
+  else dot.classList.add('ok');
+}
+
+async function refreshStatus() {
+  try {
+    const q = await API.get('/api/quick');
+    _parseRunning = !!q.parse_running;
+    const models = q.models;
+    document.getElementById('modelStatus').innerHTML = `模型: ${(models.pipeline&&models.vlm) ? '<span style="color:#16a34a">齐全</span>' : '<span style="color:#d97706">缺失</span>'}`;
+
+    const sp = document.getElementById('statusProgress');
+    const sf = document.getElementById('statusProgressFill');
+    if (q.parse_running) {
+      sp.style.display = 'inline-flex';
+      try {
+        const ps = await API.get('/api/parse/status');
+        const pct = ps.progress.total > 0 ? Math.round(ps.progress.current / ps.progress.total * 100) : 0;
+        sf.style.width = pct + '%';
+        if (ps.paused) updateStatus(`⏸ 散热中 ${ps.progress.current}/${ps.progress.total}`, 'warn');
+        else updateStatus(`解析中 ${ps.progress.current}/${ps.progress.total}`, 'ok');
+      } catch(e) { updateStatus('解析中...', 'ok'); }
+    } else {
+      sp.style.display = 'none'; sf.style.width = '0%';
+      if (q.setup_running) updateStatus('安装中...', 'warn');
+      else updateStatus(_envReady ? '就绪' : '请完成环境安装', 'warn');
+    }
+  } catch(e) { updateStatus('后端未连接', 'err'); }
+}
+
+// ── System Monitor (real-time CPU/RAM/GPU in statusbar) ──
+let _parseRunning = false;
+let _lastEmergencyStop = 0;
+
+async function refreshMonitor() {
+  try {
+    const m = await API.get('/api/system/monitor');
+    const cpuPct = m.cpu_percent || 0;
+    const ramPct = m.ram_percent || 0;
+    const ramAvail = m.ram_available_gb || 0;
+    const cpuFreq = m.cpu_freq_mhz || 0;
+    const cpuTemp = m.cpu_temp_c || 0;
+    const gpuUtil = m.gpu_utilization || 0;
+    const gpuMemUtil = m.gpu_memory_utilization || 0;
+    const gpuPower = m.gpu_power_w || 0;
+    const gpuPowerLimit = m.gpu_power_limit_w || 0;
+    const gpuMemUsed = m.gpu_memory_used_mb || 0;
+    const gpuMemTotal = m.gpu_memory_total_mb || 0;
+    const gpuTemp = m.gpu_temperature || 0;
+
+    // 状态栏：CPU（用率 + 频率 + 温度）
+    const cpuEl = document.getElementById('cpuMonitor');
+    const cpuCls = cpuPct > 90 ? 'monitor-danger' : cpuPct > 70 ? 'monitor-warn' : 'monitor-ok';
+    const cpuFreqStr = cpuFreq > 0 ? ` ${(cpuFreq/1000).toFixed(1)}G` : '';
+    const cpuTempStr = cpuTemp > 0 ? ` ${cpuTemp}°C` : '';
+    cpuEl.innerHTML = `CPU: <span class="monitor-val ${cpuCls}">${cpuPct}%</span>${cpuFreqStr}${cpuTempStr}`;
+
+    // 状态栏：RAM
+    const ramEl = document.getElementById('ramMonitor');
+    const ramCls = ramPct > 90 ? 'monitor-danger' : ramPct > 70 ? 'monitor-warn' : 'monitor-ok';
+    ramEl.innerHTML = `RAM: <span class="monitor-val ${ramCls}">${ramPct}%</span> <span style="font-weight:400">(${ramAvail.toFixed(1)}G可用)</span>`;
+
+    // 状态栏：GPU（使用率 + 温度 + 显存）
+    const gpuEl = document.getElementById('gpuPowerMonitor');
+    if (gpuMemTotal > 0) {
+      const utilCls = gpuUtil > 90 ? 'monitor-danger' : gpuUtil > 60 ? 'monitor-warn' : 'monitor-ok';
+      const tmpCls = gpuTemp > 80 ? 'monitor-danger' : gpuTemp > 70 ? 'monitor-warn' : '';
+      gpuEl.innerHTML = `GPU: <span class="monitor-val ${utilCls}">${gpuUtil}%</span> | <span class="${tmpCls}">${gpuTemp}°C</span> | ${(gpuMemUsed/1024).toFixed(1)}/${(gpuMemTotal/1024).toFixed(1)}G`;
+    } else {
+      gpuEl.innerHTML = 'GPU: N/A';
+    }
+
+    // 仪表盘监控卡：CPU
+    const dashCpu = document.getElementById('dashCpu');
+    if (dashCpu) {
+      const cpuTemp2 = cpuTemp > 0 ? ` <span style="color:${cpuTemp>80?'var(--red)':cpuTemp>70?'var(--yellow)':'var(--dim)'}">${cpuTemp}°C</span>` : ' <span style="color:var(--dim)">N/A</span>';
+      dashCpu.innerHTML = `<span class="${cpuCls}">${cpuPct}%</span> · ${(cpuFreq/1000).toFixed(1)}GHz${cpuTemp2}`;
+    }
+    // 仪表盘监控卡：RAM
+    const dashRam = document.getElementById('dashRam');
+    if (dashRam) {
+      dashRam.innerHTML = `<span class="${ramCls}">${ramPct}%</span> · ${ramAvail.toFixed(1)}G 可用`;
+    }
+    // 仪表盘监控卡：GPU
+    const dashGpu = document.getElementById('dashGpu');
+    if (dashGpu) {
+      if (gpuMemTotal > 0) {
+        const utilCls2 = gpuUtil > 90 ? 'var(--red)' : gpuUtil > 60 ? 'var(--yellow)' : 'var(--green)';
+        const tmpCls2 = gpuTemp > 80 ? 'var(--red)' : gpuTemp > 70 ? 'var(--yellow)' : 'var(--green)';
+        const powerStr = gpuPowerLimit > 0 ? ` · <span style="color:var(--dim)">${gpuPower.toFixed(0)}/${gpuPowerLimit.toFixed(0)}W</span>` : '';
+        dashGpu.innerHTML = `<span style="color:${utilCls2}">${gpuUtil}%</span> · <span style="color:${tmpCls2}">${gpuTemp}°C</span>${powerStr}<br><span style="font-size:12px;color:var(--dim)">显存 ${(gpuMemUsed/1024).toFixed(1)}/${(gpuMemTotal/1024).toFixed(1)}G${gpuMemUtil>0?' · '+gpuMemUtil+'%带宽':''}</span>`;
+      } else {
+        dashGpu.innerHTML = '<span style="color:var(--dim)">N/A</span>';
+      }
+    }
+    // 仪表盘监控卡：任务
+    const dashTask = document.getElementById('dashTask');
+    if (dashTask) {
+      if (_parseRunning) dashTask.innerHTML = '<span style="color:var(--green)">● 解析中</span>';
+      else dashTask.innerHTML = '<span style="color:var(--dim)">○ 空闲</span>';
+    }
+
+    // 急停已禁用——CPU/内存高占用属正常解析行为
+  } catch(e) {}
+}
+
+async function emergencyStop(reason) {
+  addLog(`⚠️ 紧急停止: ${reason}，自动暂停解析防止系统卡死`);
+  updateStatus(`⚠ ${reason}`, 'err');
+  try {
+    await API.post('/api/parse/cancel');
+  } catch(e) {}
+}
+
+function switchTab(page) {
+  document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
+  const nav = document.getElementById('nav-' + page);
+  if (nav) nav.classList.add('active');
+  document.querySelectorAll('.page').forEach(p => p.classList.add('hidden'));
+  const pg = document.getElementById('pg-' + page);
+  if (pg) pg.classList.remove('hidden');
+  currentPage = page;
+  if (!_pagesInited[page]) { _pagesInited[page] = true; initPage(page); }
+  updateParseBtn();
+  updateDocxBtn();
+}
+
+function escHtml(s) { return (s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+
+function initPage(page) {
+  if (page === 'dashboard') initDashboard();
+  else if (page === 'parse' || page === 'word') loadSettings();
+}
+
+// ═══════════ DASHBOARD ═══════════
+async function initDashboard() {
+  try {
+    const cap = await API.get('/api/capability');
+    _capabilityLevel = cap.level;
+    _envReady = !!cap.env_ready;
+
+    let clr = 'var(--green)';
+    if (cap.level === 'basic') clr = 'var(--red)';
+    else if (cap.level === 'limited') clr = 'var(--yellow)';
+    else if (cap.level === 'capable') clr = 'var(--accent)';
+    document.getElementById('envStatusCard').style.borderLeftColor = clr;
+
+    let icon = '✅'; if (cap.level === 'basic') icon = '❌'; else if (cap.level === 'limited') icon = '⚠️';
+    document.getElementById('envStatusTitle').textContent = icon + ' 系统状态';
+
+    // 系统状态摘要（一行）
+    const cpuN = (cap.cpu_cores || 0) + '核';
+    const ramN = (cap.ram_total_gb || 0).toFixed(1) + 'GB';
+    const gpuN = cap.has_nvidia ? `${cap.vram_gb.toFixed(1)}GB 显存` : '无显卡';
+    const rec = cap.recommendation || '';
+    document.getElementById('envStatusText').innerHTML =
+      `<b>${escHtml(cap.cpu_name || 'CPU')}</b> ${cpuN} · <b>RAM</b> ${ramN} · <b>GPU</b> ${gpuN}<br><span style="color:var(--dim)">${escHtml(rec)}</span>`;
+
+    if (_envReady) updateStatus('就绪', 'ok');
+    else updateStatus('请完成环境安装', 'warn');
+  } catch(e) {
+    updateStatus('后端未连接', 'err');
+  }
+  loadSetupSteps();
+  refreshMonitor();
+}
+
+async function loadSetupSteps() {
+  try {
+    const steps = await API.get('/api/setup/steps');
+    let html = '';
+    steps.forEach((step, i) => {
+      const isDone = step.status === 'done';
+      const isSkip = step.status === 'skipped';
+      html += '<div class="step-item' + (isDone ? ' done' : '') + '" id="step-' + step.id + '"><div class="step-num">' + (isDone ? '✓' : (isSkip ? '⊘' : i + 1)) + '</div><div class="step-info" style="flex:1"><div class="step-name">' + escHtml(step.name) + (isSkip ? ' <span class="text-dim">(已跳过)</span>' : '') + '</div><div class="step-desc" style="margin-top:4px;line-height:1.5">' + escHtml(step.description) + (step.skip_reason ? '<br><span style="color:var(--dim)">'+escHtml(step.skip_reason)+'</span>' : '') + '</div><div style="display:flex;gap:16px;margin-top:6px;font-size:11px;color:var(--dim)"><span>📁 ' + escHtml(step.location) + '</span><span>💾 ' + escHtml(step.size) + '</span></div></div><button class="btn ' + (isDone ? 'success' : 'primary') + '" id="btn-' + step.id + '" onclick="executeStep(\'' + step.id + '\')" ' + (isDone || isSkip ? 'disabled' : '') + '>' + (isDone ? '✓ 已完成' : (isSkip ? '已跳过' : escHtml(step.action_text))) + '</button></div>';
+    });
+    document.getElementById('setupSteps').innerHTML = html;
+    const doneCount = steps.filter(s => s.status === 'done').length;
+    const total = steps.length;
+    const pct = total > 0 ? Math.round(doneCount / total * 100) : 0;
+    document.getElementById('setupProgressBar').style.width = pct + '%';
+    document.getElementById('setupProgressText').textContent = `进度: ${doneCount}/${total} (${pct}%)`;
+  } catch(e) { console.error(e); }
+}
+
+async function executeStep(stepId) {
+  const btn = document.getElementById('btn-' + stepId);
+  if (btn) { btn.disabled = true; btn.textContent = '执行中...'; }
+  document.getElementById('setupProgressText').textContent = '执行中...';
+  try { await API.post('/api/setup/step/' + stepId); } catch(e) { addLog('执行失败: ' + e.message); }
+  setTimeout(() => { loadSetupSteps(); checkCapability(); }, 2000);
+}
+
+// ═══════════ PARSE PAGE (设置嵌入) ═══════════
+const MODE_INFO = {
+  local: '<b>本地解析</b>：调用本地 MinerU CLI，需要完整 MinerU 环境 + 模型。' +
+         '<br>• 优点：无文件大小限制、无 IP 限流、可离线' +
+         '<br>• 缺点：占用本地 GPU/磁盘，需要安装模型' +
+         '<br><span class="limit">⚠ 本地环境未就绪时不可用</span>',
+  agent_free: '<b>免 API（Agent Lightweight）</b>：MinerU 官方轻量解析端点，<b>无需注册</b>，IP 限流。' +
+              '<br>• 限制：单文件 ≤10MB、≤20 页' +
+              '<br>• 输出：Markdown' +
+              '<br>• 适用：快速预览、Agent 集成、轻量测试' +
+              '<br><span class="limit">⚠ 超过 10MB 的文件会被跳过</span>',
+  precision_api: '<b>精准 API（Precision Extract）</b>：MinerU 官方精准解析，<b>需在 mineru.net 申请 Token</b>。' +
+                '<br>• 限制：单文件 ≤200MB、≤200 页，单次 ≤200 文件' +
+                '<br>• 模型：vlm（推荐） / pipeline / MinerU-HTML' +
+                '<br>• 输出：ZIP（含 Markdown/JSON，可选 docx/html/latex）',
+};
+
+function switchParseMode(mode) {
+  _parseMethod = mode;
+  document.querySelectorAll('.parse-mode-tab').forEach(t => t.classList.remove('active'));
+  document.querySelector(`.parse-mode-tab[data-mode="${mode}"]`).classList.add('active');
+  document.getElementById('localConfig').classList.toggle('hidden', mode !== 'local');
+  document.getElementById('agentFreeConfig').classList.toggle('hidden', mode !== 'agent_free');
+  document.getElementById('precisionApiConfig').classList.toggle('hidden', mode !== 'precision_api');
+  document.getElementById('modeInfo').innerHTML = MODE_INFO[mode] || '';
+  updateParseBtn();
+}
+
+function getSelectedItems() {
+  if (_parseMode === 'direct') {
+    return Array.from(document.querySelectorAll('.file-checkbox:checked')).map(cb => cb.dataset.path);
+  } else {
+    return Array.from(document.querySelectorAll('.ref-checkbox:checked')).map(cb => cb.dataset.citekey);
+  }
+}
+
+function updateParseBtn() {
+  const btn = document.getElementById('btnParse');
+  if (!btn) return;
+  const hasOutput = !!(document.getElementById('outputDir') && document.getElementById('outputDir').value);
+  const hasFiles = getSelectedItems().length > 0;
+  let hasMethod = true;
+  let title = '';
+  if (_parseMethod === 'local') {
+    if (!_envReady) { hasMethod = false; title = '本地环境未就绪，请先安装向导或使用云端解析'; }
+  } else if (_parseMethod === 'precision_api') {
+    if (!document.getElementById('parseApiToken').value.trim()) { hasMethod = false; title = '请先填入 API Token'; }
+  }
+  btn.disabled = !(hasFiles && hasOutput && hasMethod);
+  btn.title = title;
+}
+
+async function importZoteroJSON() {
+  try {
+    const result = await electronAPI.openFile({ filters: [{ name: 'JSON Files', extensions: ['json'] }], properties: ['openFile'] });
+    if (result.canceled || !result.filePaths.length) return;
+    const filePath = result.filePaths[0];
+    addLog('导入: ' + filePath);
+    const data = await API.post('/api/zotero/import', { file_path: filePath });
+    references = data.references;
+    _parseMode = 'zotero';
+    document.getElementById('directFileTable').style.display = 'none';
+    document.getElementById('refTableContainer').style.display = 'block';
+    document.getElementById('importStatus').textContent = '已导入 ' + references.length + ' 条文献';
+    renderRefTable();
+    updateParseBtn();
+  } catch(e) { addLog('导入失败: ' + e.message); }
+}
+
+async function importDirectFiles() {
+  try {
+    const result = await electronAPI.openFile({
+      filters: [{ name: 'Supported Files', extensions: ['pdf', 'docx', 'pptx', 'xlsx', 'png', 'jpg', 'jpeg', 'bmp'] }],
+      properties: ['openFile', 'multiSelections']
+    });
+    if (result.canceled || !result.filePaths.length) return;
+    addLog('直接导入: ' + result.filePaths.length + ' 个文件');
+    const data = await API.post('/api/files/import', { file_paths: result.filePaths });
+    _parseMode = 'direct';
+    document.getElementById('refTableContainer').style.display = 'none';
+    document.getElementById('directFileTable').style.display = 'block';
+    renderDirectTable(data.files);
+    document.getElementById('importStatus').textContent = '已导入 ' + data.count + ' 个文件 (' + data.files.filter(f => f.valid).length + ' 个有效)';
+    updateParseBtn();
+  } catch(e) { addLog('导入失败: ' + e.message); }
+}
+
+function renderDirectTable(files) {
+  const container = document.getElementById('directFileTable');
+  let html = '<table><thead><tr><th class="checkbox-cell"><input type="checkbox" id="selectAll" onchange="toggleAllDirect(this)"></th><th>文件名</th><th>类型</th><th>大小</th><th>状态</th></tr></thead><tbody>';
+  for (const f of files) {
+    const size = Math.round(f.size / 1024) + ' KB';
+    let badge = f.parsed ? '<span class="status-badge done">✓ 已完成</span>' : f.valid ? '<span class="status-badge pending">待解析</span>' : '<span class="status-badge nopdf">不支持</span>';
+    html += '<tr><td class="checkbox-cell"><input type="checkbox" class="file-checkbox" data-path="' + escHtml(f.path) + '" onchange="updateParseBtn()" ' + (f.valid ? 'checked' : '') + ' ' + (!f.valid ? 'disabled' : '') + '></td><td style="font-size:12px">' + escHtml(f.name) + '</td><td>' + f.type + '</td><td>' + size + '</td><td>' + badge + '</td></tr>';
+  }
+  html += '</tbody></table>';
+  container.innerHTML = html;
+}
+
+function toggleAllDirect(el) { document.querySelectorAll('.file-checkbox:not(:disabled)').forEach(cb => { cb.checked = el.checked; }); updateParseBtn(); }
+
+function renderRefTable() {
+  const container = document.getElementById('refTableContainer');
+  const hasPDF = references.filter(r => r.pdf_exists).length;
+  const parsed = references.filter(r => r.parsed).length;
+  let html = '<div style="margin-bottom:8px;font-size:12px;color:var(--dim)">共 ' + references.length + ' 条 | 有PDF: ' + hasPDF + ' | 已解析: ' + parsed + ' | 待解析: ' + (hasPDF - parsed) + '</div>';
+  html += '<table><thead><tr><th class="checkbox-cell"><input type="checkbox" id="selectAll" onchange="toggleAllRefs(this)"></th><th>CiteKey</th><th>标题</th><th>PDF 大小</th><th>状态</th></tr></thead><tbody>';
+  for (const ref of references) {
+    const size = ref.pdf_exists ? Math.round(ref.pdf_size / 1024) + ' KB' : 'N/A';
+    let badge = '<span class="status-badge pending">待解析</span>';
+    if (ref.parsed) badge = '<span class="status-badge done">✓ 已完成</span>';
+    else if (!ref.pdf_exists) badge = '<span class="status-badge nopdf">无 PDF</span>';
+    html += '<tr><td class="checkbox-cell"><input type="checkbox" class="ref-checkbox" data-citekey="' + escHtml(ref.citekey) + '" onchange="updateParseBtn()" ' + (!ref.pdf_exists || ref.parsed ? '' : 'checked') + ' ' + (!ref.pdf_exists ? 'disabled' : '') + '></td><td style="font-family:Consolas,monospace;font-size:11px">' + escHtml(ref.citekey) + '</td><td>' + escHtml((ref.title || '').substring(0, 60)) + ((ref.title || '').length > 60 ? '...' : '') + '</td><td>' + size + '</td><td>' + badge + '</td></tr>';
+  }
+  html += '</tbody></table>';
+  container.innerHTML = html;
+}
+
+function toggleAllRefs(el) { document.querySelectorAll('.ref-checkbox:not(:disabled)').forEach(cb => { cb.checked = el.checked; }); updateParseBtn(); }
+
+function toggleSelectAll() {
+  if (_parseMode === 'direct') {
+    const all = document.querySelectorAll('.file-checkbox:not(:disabled)');
+    const anyChecked = Array.from(all).some(cb => cb.checked);
+    all.forEach(cb => cb.checked = !anyChecked);
+    const sa = document.getElementById('selectAll'); if (sa) sa.checked = !anyChecked;
+  } else {
+    const all = document.querySelectorAll('.ref-checkbox:not(:disabled)');
+    const anyChecked = Array.from(all).some(cb => cb.checked);
+    all.forEach(cb => cb.checked = !anyChecked);
+    const sa = document.getElementById('selectAll'); if (sa) sa.checked = !anyChecked;
+  }
+  updateParseBtn();
+}
+
+async function startParse() {
+  const paths = getSelectedItems();
+  if (!paths.length) return addLog('⚠ 请勾选要解析的文件');
+  const outputDir = document.getElementById('outputDir').value;
+  if (!outputDir) return addLog('⚠ 请设置输出目录');
+
+  // 根据 _parseMethod 选择参数
+  let parse_mode, api_token = '', backend = 'vlm-auto-engine', lang = 'en', cloudModel = 'vlm';
+
+  if (_parseMethod === 'local') {
+    parse_mode = 'local';
+    backend = document.getElementById('backend').value;
+    lang = document.getElementById('lang').value;
+  } else if (_parseMethod === 'agent_free') {
+    parse_mode = 'agent_free';
+    lang = document.getElementById('langAgent').value;
+  } else if (_parseMethod === 'precision_api') {
+    parse_mode = 'precision_api';
+    api_token = document.getElementById('parseApiToken').value.trim();
+    cloudModel = document.getElementById('cloudModel').value;
+    lang = document.getElementById('langApi').value;
+  }
+
+  try {
+    if (_parseMode === 'direct') {
+      await API.post('/api/files/parse', {
+        file_paths: paths, output_dir: outputDir,
+        backend: backend, lang: lang,
+        parse_mode: parse_mode, api_token: api_token,
+        cloud_model: cloudModel,
+      });
+    } else {
+      await API.post('/api/parse/start', {
+        citekeys: paths, output_dir: outputDir,
+        backend: backend, lang: lang,
+      });
+    }
+    document.getElementById('btnParse').disabled = true;
+    document.getElementById('btnCancel').disabled = false;
+    updateStatus('解析中...', 'ok');
+  } catch(e) { addLog('启动失败: ' + e.message); }
+}
+
+async function pickOutputDir() {
+  const result = await electronAPI.openDirectory();
+  if (!result.canceled) {
+    document.getElementById('outputDir').value = result.filePaths[0];
+    updateParseBtn();
+  }
+}
+
+async function cancelParse() {
+  await API.post('/api/parse/cancel');
+  document.getElementById('btnCancel').disabled = true;
+  document.getElementById('btnParse').disabled = false;
+  updateStatus('就绪', 'ok');
+}
+
+// ═══════════ WORD PAGE ═══════════
+async function pickMDFile() {
+  const r = await electronAPI.openFile({ filters: [{ name: 'Markdown', extensions: ['md'] }], properties: ['openFile'] });
+  if (!r.canceled && r.filePaths.length) { document.getElementById('mdPath').value = r.filePaths[0]; updateDocxBtn(); }
+}
+async function pickJsonFile() {
+  const r = await electronAPI.openFile({ filters: [{ name: 'JSON Files', extensions: ['json'] }], properties: ['openFile'] });
+  if (!r.canceled && r.filePaths.length) { document.getElementById('zotJsonPath').value = r.filePaths[0]; updateDocxBtn(); }
+}
+async function pickDocxOutputDir() {
+  const r = await electronAPI.openDirectory();
+  if (!r.canceled) document.getElementById('docxOutputDir').value = r.filePaths[0];
+}
+
+function updateDocxBtn() {
+  const btn = document.getElementById('btnGenerateDocx');
+  if (!btn) return;
+  const md = document.getElementById('mdPath').value.trim();
+  const js = document.getElementById('zotJsonPath').value.trim();
+  btn.disabled = !(md && js);
+}
+
+async function generateDocx() {
+  const md = document.getElementById('mdPath').value, js = document.getElementById('zotJsonPath').value;
+  if (!md || !js) return addLog('⚠ 请选择 Markdown 文件和 Zotero JSON 文件');
+  try {
+    await API.post('/api/docx/generate', { md_path: md, json_path: js, output_dir: document.getElementById('docxOutputDir').value });
+    document.getElementById('docxProgressText').textContent = '生成中，请查看下方日志...';
+  } catch(e) { addLog('生成失败: ' + e.message); }
+}
+
+// ═══════════ SETTINGS LOADER (只为加载 Token) ═══════════
+async function loadSettings() {
+  try {
+    const cfg = await API.get('/api/config');
+    _savedApiToken = cfg.mineru_api_token || '';
+    if (document.getElementById('outputDir') && !document.getElementById('outputDir').value) {
+      document.getElementById('outputDir').value = cfg.output_dir || '';
+    }
+    if (document.getElementById('parseApiToken')) {
+      document.getElementById('parseApiToken').value = _savedApiToken;
+    }
+    if (document.getElementById('cfgApiToken')) {
+      document.getElementById('cfgApiToken').value = _savedApiToken;
+    }
+    // v3.3.9 同步代理配置
+    const useProxyEl = document.getElementById('parseApiUseProxy');
+    const proxyUrlEl = document.getElementById('parseApiProxyUrl');
+    if (useProxyEl) useProxyEl.checked = !!cfg.api_use_proxy;
+    if (proxyUrlEl) proxyUrlEl.value = cfg.api_proxy_url || '';
+    updateParseBtn();
+    updateDocxBtn();
+  } catch(e) {}
+}
+
+// v3.3.9 保存代理配置（实时保存，输入即存）
+async function saveApiProxyConfig() {
+  try {
+    const useProxy = document.getElementById('parseApiUseProxy')?.checked || false;
+    const proxyUrl = document.getElementById('parseApiProxyUrl')?.value || '';
+    await API.post('/api/config', { api_use_proxy: useProxy, api_proxy_url: proxyUrl });
+  } catch(e) {}
+}
+
+async function validateApiToken() {
+  const token = document.getElementById('parseApiToken').value.trim();
+  const msg = document.getElementById('apiValidateMsg');
+  if (!token) { msg.textContent = '请输入 Token'; msg.style.color = 'var(--red)'; return; }
+  msg.textContent = '验证中...'; msg.style.color = 'var(--dim)';
+  try {
+    const r = await API.post('/api/api/validate', { token });
+    if (r.valid) {
+      msg.textContent = '✓ ' + r.message; msg.style.color = 'var(--green)';
+      // 保存到后端
+      await API.post('/api/config', { mineru_api_token: token });
+      _savedApiToken = token;
+    } else {
+      msg.textContent = '✗ ' + r.message; msg.style.color = 'var(--red)';
+    }
+  } catch(e) { msg.textContent = '✗ 验证失败: ' + e.message; msg.style.color = 'var(--red)'; }
+  updateParseBtn();
+}
+
+// ═══════════ INIT ═══════════
+async function waitBackend(maxSec) {
+  const start = Date.now();
+  while (Date.now() - start < maxSec * 1000) {
+    try {
+      const res = await fetch(`${API.base}/api/health`, { signal: AbortSignal.timeout(1500) });
+      if (res.ok) return true;
+    } catch(e) {}
+    await new Promise(r => setTimeout(r, 800));
+  }
+  return false;
+}
+
+async function init() {
+  await API.init();
+  document.querySelectorAll('.nav-item').forEach(item => {
+    item.addEventListener('click', () => { const page = item.dataset.page; switchTab(page); });
+  });
+  // 初始化解析模式显示
+  switchParseMode('local');
+  // 实时启用按钮
+  document.getElementById('outputDir')?.addEventListener('input', updateParseBtn);
+  document.getElementById('parseApiToken')?.addEventListener('input', updateParseBtn);
+  document.getElementById('mdPath')?.addEventListener('input', updateDocxBtn);
+  document.getElementById('zotJsonPath')?.addEventListener('input', updateDocxBtn);
+
+  switchTab('dashboard');
+  updateStatus('后端启动中...', 'warn');
+  const ok = await waitBackend(18);
+  initWS();
+  if (ok) {
+    initDashboard();
+    _pagesInited['dashboard'] = true;
+  } else {
+    updateStatus('后端未连接', 'err');
+  }
+  setInterval(refreshStatus, 1000);
+  setInterval(refreshMonitor, 2000);
+}
+
+document.addEventListener('DOMContentLoaded', init);
+</script>
+</body>
+</html>
