@@ -61,3 +61,4 @@ verify_asar337/
 verify_window_icon.bmp
 verify_window_icon.png
 electron-app/build_v*.log
+electron-app/package-lock.json
