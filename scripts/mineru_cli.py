@@ -398,9 +398,16 @@ def run_local_parse(pdfs, backend, output_dir, lang):
 
         batch_out = batch_dir / '_output'
         cmd = [mineru_exe, '-p', str(batch_dir), '-o', str(batch_out), '-b', backend, '-l', lang]
+        # 设置 conda 环境变量，让 mineru.exe 能找到 CUDA/Python DLL
+        conda_env = Path(mineru_exe).parent.parent  # Scripts/ → env root
+        env = os.environ.copy()
+        env['PATH'] = str(conda_env / 'Scripts') + ';' + str(conda_env / 'Library' / 'bin') + ';' + env.get('PATH', '')
+        env['CONDA_PREFIX'] = str(conda_env)
+        env.pop('PYTHONHOME', None)  # PyInstaller 会设这个，需要清除
+
         print(cc('BOLD', f'\n Batch {bi+1}/{len(batches)} ({len(batch_pdfs)} PDFs)'))
         try:
-            proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, encoding='utf-8', errors='replace')
+            proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, encoding='utf-8', errors='replace', env=env)
             for line in proc.stdout:
                 if any(kw in line for kw in ['%','batch','pages','Error','✓','failed','task']):
                     print(f'  {line.rstrip()[:150]}')
