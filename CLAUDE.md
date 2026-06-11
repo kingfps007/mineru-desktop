@@ -31,7 +31,7 @@ MinerU CLI v4.0.0 — Windows 命令行 PDF 批量解析工具，替代 Electron
 | 3.4.0 | 2026-06-11 | 移除Word生成；禁用暂停；BATCH_SIZE=200；关窗口杀进程 |
 | 3.3.9 | 2026-06-07 | 代理开关、API区域限制绕过 |
 
-## 架构（Electron已废弃，保留参考）
+## 架构
 
 ```
 scripts/
@@ -41,9 +41,6 @@ scripts/
 ├── mineru_app.py         ← MinerU 核心封装
 ├── mineru_html_parser.py ← HTML→MD
 └── _remap_citations.py   ← 引用重映射
-
-backend/server.py          ← Electron后端（已废弃）
-electron-app/              ← Electron前端（已废弃）
 ```
 
 ## 关键约束

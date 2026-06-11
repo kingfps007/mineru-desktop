@@ -53,8 +53,6 @@ python scripts/mineru_cli.py
 │   ├── mineru_download.py  ← 模型下载工具
 │   ├── mineru_app.py       ← MinerU 核心调用封装
 │   └── mineru_html_parser.py ← HTML→Markdown 解析
-├── backend/server.py       ← Electron 后端（已废弃，保留参考）
-└── electron-app/           ← Electron 前端（已废弃，保留参考）
 ```
 
 ## 构建
