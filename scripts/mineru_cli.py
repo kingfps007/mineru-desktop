@@ -16,10 +16,10 @@ CONFIG_PATH = Path.home() / "mineru_desktop_config.json"
 
 # ═══════════ 语言选择 ═══════════
 def choose_language():
-    print(cc('BOLD', cc('B', '\n┌───────────────────────────────────────────┐')))
-    print(cc('BOLD', cc('B', '│    MinerU CLI v4.0.0 — PDF Batch Parser          │')))
-    print(cc('BOLD', cc('B', '│    MinerU CLI v4.0.0 — PDF 批量解析工具          │')))
-    print(cc('BOLD', cc('B', '└───────────────────────────────────────────┘')))
+    print(cc('BOLD', cc('B', '\n═══════════════════════════════════')))
+    print(cc('BOLD', cc('B', '  MinerU CLI v4.0.0 — PDF Batch Parser')))
+    print(cc('BOLD', cc('B', '  MinerU CLI v4.0.0 — PDF 批量解析工具')))
+    print(cc('BOLD', cc('B', '═══════════════════════════════════')))
     print('\n  [1] 中文 (Chinese)')
     print('  [2] English')
     while True:
