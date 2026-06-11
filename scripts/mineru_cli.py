@@ -462,7 +462,7 @@ def main():
     print(T(ui_lang, '  选择被解析论文的语言:', '  Select language of papers to parse:'))
     print(T(ui_lang, '  [1] 中文论文', '  [1] Chinese papers'))
     print(T(ui_lang, '  [2] English papers', '  [2] English papers'))
-    parse_lang = 'en' if input(cc('Y', '  > ')).strip() == '2' else 'zh'
+    parse_lang = 'en' if input(cc('Y', '  > ')).strip() == '2' else 'ch'
 
     # 7. 输入
     print(cc('BOLD', T(ui_lang, '\n📂 输入', '\n📂 Input')))
