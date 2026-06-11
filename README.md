@@ -1,39 +1,44 @@
-# MinerU Desktop
+# MinerU CLI v4.0.0
 
-基于 [MinerU (OpenDataLab)](https://github.com/opendatalab/MinerU) 的 Windows 桌面端 PDF 批量解析工具，集成 Zotero 文献管理生态。
+Windows 命令行 PDF 批量解析工具，替代 Electron GUI 版本。
+
+## 为什么用 CLI 替代 Electron
+
+| | Electron v3.x | CLI v4.0.0 |
+|:---|:---|:---|
+| 大小 | 71MB exe + 290MB node_modules | 7.2MB 单文件 |
+| 启动 | 3-10秒 | 即时 |
+| 稳定性 | 三层进程通信，易中断 | 单进程直接调用 |
+| 解析速度 | 每10篇重新加载模型 | 全部一篇加载一次 |
 
 ## 功能
 
-- **批量解析**：导入 Zotero BetterBibTeX JSON 或直接多选文件，VLM/Pipeline 后端解析为 Markdown + 图片
-- **安装向导**：逐步引导安装 Miniconda → MinerU → PyTorch → 模型 → Zotero 插件
-- **实时监控**：GPU/模型状态仪表盘 + 解析进度 + 温度保护自动暂停
-- **MinerU Cloud API**：支持官方精准解析 API Token 配置
-- **MD → Zotero DOCX**：已移至论文项目 `~/Desktop/PCM-BTM综述论文/脚本/生成docx.py`
+- **仪表盘**：CPU/RAM/GPU/PyTorch/模型/CUDA 状态一目了然
+- **安装向导**：10步自动化安装（Miniconda→环境→PyTorch→MinerU→模型→Zotero→CUDA）
+- **批量解析**：Pipeline/VLM/Hybrid 后端 + 云端 API
+- **范围选择**：支持 `11-108`, `1,3,5-10` 等打印机风格
+- **中英双语**：全界面双语言切换
 
-## 技术栈
-
-- 前端: Electron 33 + 原生 HTML/CSS/JS
-- 后端: Python FastAPI + Uvicorn
-- 引擎: MinerU 3.1.x（pipeline / vlm / hybrid）
-- 打包: electron-builder → 单文件 .exe
-
-## 快速开始
+## 使用方法
 
 ```bash
-cd electron-app && npm install && npm start
+# 双击 MinerU_CLI.exe 或运行
+python scripts/mineru_cli.py
 ```
 
-## 打包
+## 构建
 
 ```bash
-cd electron-app && npm run build
-# → MinerU_Desktop.exe（项目根目录）
+conda activate MinerU
+pip install pyinstaller
+pyinstaller --onefile --name MinerU_CLI --distpath . scripts/mineru_cli.py
+# → MinerU_CLI.exe (~7.2MB)
 ```
 
 ## 当前版本
 
-**v3.4.0** (2026-06-11) — 移除Word生成；禁用全部暂停；BATCH_SIZE=200；关窗口清理mineru残留。
+**v4.0.0** (2026-06-11) — CLI 替代 Electron，全功能安装向导，中英双语，单次模型加载
 
 ## 许可证
 
-Apache 2.0
+Apache 2.0 — 基于 [OpenDataLab/MinerU](https://github.com/opendatalab/MinerU)
