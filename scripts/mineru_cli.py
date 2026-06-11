@@ -65,12 +65,15 @@ def detect_system(lang):
 
     # MinerU env
     info['mineru_python'] = None
+    info['mineru_exe'] = None
     for d in [Path("C:/ProgramData/miniconda3/envs/MinerU"),
               Path.home() / ".conda/envs/MinerU"]:
         py = d / "python.exe"
+        me = d / "Scripts" / "mineru.exe"
         if py.exists():
             info['mineru_python'] = str(py)
-            break
+        if me.exists():
+            info['mineru_exe'] = str(me)
 
     # Torch
     info['torch_ok'] = False
@@ -388,7 +391,18 @@ def run_local_parse(pdfs, backend, output_dir, lang):
         except Exception as e:
             print(cc('R', f'  ✗ {safe}: {e}'))
 
-    cmd = ['mineru', '-p', str(batch_dir), '-o', str(batch_out), '-b', backend, '-l', lang]
+    # 使用 conda 环境中的 mineru.exe 完整路径
+    mineru_exe = None
+    for d in [Path("C:/ProgramData/miniconda3/envs/MinerU/Scripts/mineru.exe"),
+              Path.home() / ".conda/envs/MinerU/Scripts/mineru.exe"]:
+        if d.exists():
+            mineru_exe = str(d)
+            break
+    if not mineru_exe:
+        print(cc('R', 'mineru.exe not found! Check conda MinerU environment.'))
+        return
+
+    cmd = [mineru_exe, '-p', str(batch_dir), '-o', str(batch_out), '-b', backend, '-l', lang]
     print(cc('BOLD', T(lang, f'\n🚀 模型加载一次，处理全部 {total} 篇...', f'\n🚀 Processing all {total} PDFs (single model load)...')))
     print(f'  {" ".join(cmd[:5])} ...')
 
