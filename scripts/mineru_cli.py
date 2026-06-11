@@ -428,66 +428,73 @@ def run_local_parse(pdfs, backend, output_dir, lang):
 def main():
     os.system('cls' if os.name == 'nt' else 'clear')
 
-    # 1. 语言
-    lang = choose_language()
+    # 1. 界面语言
+    ui_lang = choose_language()
 
     # 2. 仪表盘
-    info = detect_system(lang)
+    info = detect_system(ui_lang)
 
     # 3. 安装向导
-    info = run_setup_wizard(info, lang)
+    info = run_setup_wizard(info, ui_lang)
 
     # 4. 刷新检测
-    info = detect_system(lang)
+    info = detect_system(ui_lang)
 
     # 5. 选择后端
-    backend, mode = choose_backend(info, lang)
+    backend, mode = choose_backend(info, ui_lang)
 
-    # 6. 输入
-    print(cc('BOLD', T(lang, '\n📂 输入', '\n📂 Input')))
-    print(T(lang, '  [1] Zotero BBT JSON', '  [1] Zotero BBT JSON'))
-    print(T(lang, '  [2] PDF 文件夹', '  [2] PDF folder'))
+    # 6. 解析语言（区别于界面语言）
+    print(cc('BOLD', T(ui_lang, '\n🌐 解析语言', '\n🌐 Parse Language')))
+    print(T(ui_lang, '  选择被解析论文的语言:', '  Select language of papers to parse:'))
+    print(T(ui_lang, '  [1] 中文论文', '  [1] Chinese papers'))
+    print(T(ui_lang, '  [2] English papers', '  [2] English papers'))
+    parse_lang = 'en' if input(cc('Y', '  > ')).strip() == '2' else 'zh'
+
+    # 7. 输入
+    print(cc('BOLD', T(ui_lang, '\n📂 输入', '\n📂 Input')))
+    print(T(ui_lang, '  [1] Zotero BBT JSON', '  [1] Zotero BBT JSON'))
+    print(T(ui_lang, '  [2] PDF 文件夹', '  [2] PDF folder'))
     c = input(cc('Y', '  > ')).strip()
     if c == '2':
-        folder = input(cc('Y', T(lang, '  文件夹路径: ', '  Folder path: '))).strip().strip('"')
+        folder = input(cc('Y', T(ui_lang, '  文件夹路径: ', '  Folder path: '))).strip().strip('"')
         pdfs = extract_pdfs_from_folder(folder)
     else:
-        jpath = input(cc('Y', T(lang, '  JSON路径: ', '  JSON path: '))).strip().strip('"')
+        jpath = input(cc('Y', T(ui_lang, '  JSON路径: ', '  JSON path: '))).strip().strip('"')
         pdfs = extract_pdfs_from_json(jpath)
 
     if not pdfs:
-        print(cc('R', T(lang, '❌ 无PDF', '❌ No PDFs found'))); return
+        print(cc('R', T(ui_lang, '❌ 无PDF', '❌ No PDFs found'))); return
     for i, p in enumerate(pdfs[:3]):
         print(f'  {i+1}. {p["citekey"][:40]}')
     if len(pdfs) > 3: print(f'  ... {len(pdfs)} total')
 
-    # 7. 范围
-    pdfs = select_range(pdfs, lang)
+    # 8. 范围
+    pdfs = select_range(pdfs, ui_lang)
 
-    # 8. 输出
-    print(cc('BOLD', T(lang, '\n📁 输出', '\n📁 Output')))
+    # 9. 输出
+    print(cc('BOLD', T(ui_lang, '\n📁 输出', '\n📁 Output')))
     while True:
-        out = input(cc('Y', T(lang, '  输出目录 (必填): ', '  Output dir (required): '))).strip().strip('"')
+        out = input(cc('Y', T(ui_lang, '  输出目录 (必填): ', '  Output dir (required): '))).strip().strip('"')
         if out:
             os.makedirs(out, exist_ok=True); break
-        print(cc('R', T(lang, '  必须输入', '  Required')))
+        print(cc('R', T(ui_lang, '  必须输入', '  Required')))
 
-    # 9. 确认
-    print(cc('BOLD', T(lang, '\n📋 确认', '\n📋 Confirm')))
-    print(f'  {T(lang, "模式", "Mode")}: {mode} | {T(lang, "后端", "Backend")}: {backend} | {T(lang, "语言", "Lang")}: {lang}')
+    # 10. 确认
+    print(cc('BOLD', T(ui_lang, '\n📋 确认', '\n📋 Confirm')))
+    print(f'  {T(ui_lang, "模式", "Mode")}: {mode} | {T(ui_lang, "后端", "Backend")}: {backend} | {T(ui_lang, "解析语言", "Parse Lang")}: {parse_lang}')
     print(f'  {len(pdfs)} PDFs → {out}')
-    if input(cc('Y', T(lang, '\n  开始? [Y/n]: ', '\n  Start? [Y/n]: '))).strip().lower() not in ('', 'y'):
+    if input(cc('Y', T(ui_lang, '\n  开始? [Y/n]: ', '\n  Start? [Y/n]: '))).strip().lower() not in ('', 'y'):
         return
 
-    # 10. 跑
+    # 11. 跑
     if mode == 'cloud':
-        print(T(lang, '⚠ 云端模式需 API Key，先用本地 Pipeline 解析', '⚠ Cloud mode needs API Key, using local Pipeline'))
-        run_local_parse(pdfs, 'pipeline', out, lang)
+        print(T(ui_lang, '⚠ 云端模式需 API Key，先用本地 Pipeline 解析', '⚠ Cloud mode needs API Key, using local Pipeline'))
+        run_local_parse(pdfs, 'pipeline', out, parse_lang)
     else:
-        run_local_parse(pdfs, backend, out, lang)
+        run_local_parse(pdfs, backend, out, parse_lang)
 
-    print(cc('G', T(lang, '\n🎉 全部完成!', '\n🎉 All done!')))
-    input(cc('D', T(lang, '\n按回车退出...', '\nPress Enter to exit...')))
+    print(cc('G', T(ui_lang, '\n🎉 全部完成!', '\n🎉 All done!')))
+    input(cc('D', T(ui_lang, '\n按回车退出...', '\nPress Enter to exit...')))
 
 if __name__ == '__main__':
     main()
