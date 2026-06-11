@@ -71,6 +71,7 @@ pyinstaller --onefile --name MinerU_CLI --distpath . scripts/mineru_cli.py
 
 ## 版本
 
+**v4.0.1** (2026-06-11) — 自动RAM调BATCH；.bat启动替代PyInstaller
 **v4.0.0** (2026-06-11) — CLI 替代 Electron；全功能安装向导；中英双语；单次模型加载；清理历史遗留。
 
 ## 许可证

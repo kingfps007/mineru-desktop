@@ -17,8 +17,8 @@ CONFIG_PATH = Path.home() / "mineru_desktop_config.json"
 # ═══════════ 语言选择 ═══════════
 def choose_language():
     print(cc('BOLD', cc('B', '\n═══════════════════════════════════')))
-    print(cc('BOLD', cc('B', '  MinerU CLI v4.0.0 — PDF Batch Parser')))
-    print(cc('BOLD', cc('B', '  MinerU CLI v4.0.0 — PDF 批量解析工具')))
+    print(cc('BOLD', cc('B', '  MinerU CLI v4.0.1 — PDF Batch Parser')))
+    print(cc('BOLD', cc('B', '  MinerU CLI v4.0.1 — PDF 批量解析工具')))
     print(cc('BOLD', cc('B', '═══════════════════════════════════')))
     print('\n  [1] 中文 (Chinese)')
     print('  [2] English')
@@ -376,7 +376,17 @@ def extract_pdfs_from_folder(folder):
 # ═══════════ 解析 ═══════════
 def run_local_parse(pdfs, backend, output_dir, lang):
     total = len(pdfs)
-    BATCH = 5   # 少量分批，防止 MemoryError
+    # 根据硬件内存自动调节批次大小
+    try:
+        import psutil
+        ram_gb = psutil.virtual_memory().total / (1024**3)
+    except:
+        ram_gb = 8
+    if ram_gb < 12:   BATCH = 3
+    elif ram_gb < 24: BATCH = 5
+    elif ram_gb < 48: BATCH = 8
+    else:             BATCH = 10
+    print(cc('D', f'  RAM: {ram_gb:.0f}GB → BATCH={BATCH}'))
     batches = [pdfs[i:i+BATCH] for i in range(0, total, BATCH)]
     t0 = time.time()
 
