@@ -1,6 +1,6 @@
 # CLAUDE.md
 
-MinerU CLI v4.0.0 — Windows 命令行 PDF 批量解析工具，替代 Electron GUI。
+MinerU CLI v4.0.2 — Windows 命令行 PDF 批量解析工具，替代 Electron GUI。
 
 ## 项目定位
 
@@ -21,12 +21,13 @@ MinerU CLI v4.0.0 — Windows 命令行 PDF 批量解析工具，替代 Electron
 3. 解析：本地 Pipeline/VLM/Hybrid 或云端 API
 4. 输入：Zotero BBT JSON 或 PDF 文件夹
 5. 范围选择：支持 11-108、1,3,5-10 等打印机风格
-6. 批量处理：所有 PDF 放一个文件夹，mineru 只调一次（模型加载一次）
+6. 批量处理：RAM 自适应 BATCH（3-10篇/批），每批独立调用 mineru；失败自动重试1次
 
 ## 版本记录
 
 | 版本 | 日期 | 变更 |
 |:---|:---|:---|
+| 4.0.2 | 2026-06-11 | 修复稳定性：恢复conda env传递+RAM自适应BATCH+线程超时+重试+Ctrl+C清理；删除三份重复代码(968→580行) |
 | 4.0.1 | 2026-06-11 | 放弃PyInstaller(.bat启动)；自动根据RAM调BATCH；修复MemoryError |
 | 4.0.0 | 2026-06-11 | CLI替代Electron；全功能安装向导；中英双语；批量处理 |
 | 3.4.0 | 2026-06-11 | 移除Word生成；禁用暂停；BATCH_SIZE=200；关窗口杀进程 |
@@ -54,9 +55,11 @@ scripts/
 ## 踩坑记录
 
 - **CLI 用 subprocess 调 mineru，不要调 server.py**：直接调用更稳定，没有进程通信开销
-- **所有 PDF 放临时文件夹→mineru 一次调用**：避免每次重新加载模型
+- **subprocess.Popen 必须传 env**：不传 conda 环境变量会导致 mineru.exe 找不到 CUDA DLL
+- **用 threading 读 stdout + join(timeout) 实现真正超时**：`for line in proc.stdout` 在前会阻塞 `proc.wait(timeout)`，超时形同虚设
 - **不要用 `magic_pdf` 检测 MinerU 包**：正确包名是 `mineru`
 - **框线用 ASCII 不用双字节字符**：避免终端中文对齐错位
 - **修改 Electron UI 用 CSS 隐藏而非删除 DOM**：删除可能致 JS 初始化崩溃
 - **每次提交前更新全部文档和版本号**：用户已多次提醒
 - **增量修改，不改无关代码**：不要顺手重构或简化工作代码
+- **同一文件不要有多个函数定义副本**：Python 最后定义覆盖前面，前几版是死代码还会误导维护
