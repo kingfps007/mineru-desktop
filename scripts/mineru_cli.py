@@ -376,6 +376,226 @@ def extract_pdfs_from_folder(folder):
 # ═══════════ 解析 ═══════════
 def run_local_parse(pdfs, backend, output_dir, lang):
     total = len(pdfs)
+    BATCH = 50
+    batches = [pdfs[i:i+BATCH] for i in range(0, total, BATCH)]
+    t0 = time.time()
+
+    mineru_exe = None
+    for d in [Path("C:/ProgramData/miniconda3/envs/MinerU/Scripts/mineru.exe"),
+              Path.home() / ".conda/envs/MinerU/Scripts/mineru.exe"]:
+        if d.exists(): mineru_exe = str(d); break
+    if not mineru_exe:
+        print(cc('R', 'mineru.exe not found!')); return
+
+    total_success = 0
+    for bi, batch_pdfs in enumerate(batches):
+        batch_dir = Path(output_dir) / f'_batch_{datetime.now().strftime("%Y%m%d_%H%M%S")}_{bi+1}'
+        batch_dir.mkdir(parents=True, exist_ok=True)
+        batch_out = batch_dir / '_mineru_output'
+        name_map = {}
+        print(cc('BOLD', f'\n Batch {bi+1}/{len(batches)} ({len(batch_pdfs)} PDFs)'))
+        for pdf in batch_pdfs:
+            safe = re.sub(r'[<>":/\|?*]', '_', pdf['citekey'])[:80]
+            try:
+                shutil.copy2(pdf['path'], batch_dir / f'{safe}.pdf')
+                name_map[safe] = pdf['citekey']
+            except Exception as e:
+                print(cc('R', f'  skip {safe}: {e}'))
+        cmd = [mineru_exe, '-p', str(batch_dir), '-o', str(batch_out), '-b', backend, '-l', lang]
+        try:
+            proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, encoding='utf-8', errors='replace')
+            for line in proc.stdout:
+                if any(kw in line for kw in ['%','batch','pages','Error','error','✓','failed','task']):
+                    print(f'  {line.rstrip()[:150]}')
+            proc.wait(timeout=7200)
+            for safe, ck in name_map.items():
+                od = Path(output_dir) / ck
+                od.mkdir(parents=True, exist_ok=True)
+                for sd in [batch_out] + list(batch_out.rglob('*')):
+                    if not sd.is_dir(): continue
+                    for m in sd.glob(f'{safe}*.md'):
+                        try: shutil.move(str(m), str(od / f'{ck}.md')); total_success += 1
+                        except: pass
+                    for im in sd.glob('images'):
+                        if im.is_dir() and not (od/'images').exists():
+                            try: shutil.copytree(str(im), str(od/'images'))
+                            except: pass
+        except Exception as e:
+            print(cc('R', f'  {e}'))
+        finally:
+            shutil.rmtree(batch_dir, ignore_errors=True)
+    elapsed = time.time() - t0
+    print(cc('BOLD', cc('G', f'\n {total_success}/{total} done | {elapsed:.0f}s')))
+
+
+def _check_api_key():
+    for p in [CONFIG_PATH, Path.home() / '.env']:
+        if p.exists():
+            try:
+                cfg = json.loads(p.read_text(encoding='utf-8')) if p.suffix == '.json' else {}
+                if cfg.get('api_key'):
+                    return True
+            except: pass
+    return False
+
+def exec_setup_step(sid, info, lang):
+    print(cc('BOLD', f'\n▶ {sid}'))
+
+    if sid == 'check_env':
+        info = detect_system(lang)
+
+    elif sid == 'install_conda':
+        print(T(lang, '  打开下载页: https://mirrors.tuna.tsinghua.edu.cn/anaconda/miniconda/', '  Opening: https://docs.conda.io/en/latest/miniconda.html'))
+        webbrowser.open('https://mirrors.tuna.tsinghua.edu.cn/anaconda/miniconda/')
+
+    elif sid == 'create_env':
+        if not info['conda_exe']:
+            print(cc('R', T(lang, '  需要先安装 Miniconda', '  Miniconda required first')))
+            return
+        print(T(lang, '  创建 MinerU 环境 (Python 3.10)...', '  Creating MinerU env (Python 3.10)...'))
+        r = subprocess.run([info['conda_exe'], 'create', '-n', 'MinerU', 'python=3.10', '-y'], capture_output=True, text=True, timeout=300)
+        print(cc('G', T(lang, '  ✅ 完成', '  ✅ Done')) if r.returncode == 0 else cc('R', f'  ❌ {r.stderr[-200:]}'))
+
+    elif sid == 'install_torch':
+        py = info.get('mineru_python') or 'python'
+        print(T(lang, '  安装 PyTorch CUDA 12.1...', '  Installing PyTorch CUDA 12.1...'))
+        r = subprocess.run([py, '-m', 'pip', 'install', 'torch', 'torchvision', '--index-url', 'https://download.pytorch.org/whl/cu121'],
+                          capture_output=True, text=True, timeout=600)
+        print(cc('G', T(lang, '  ✅ 完成', '  ✅ Done')) if r.returncode == 0 else cc('R', f'  ❌ {r.stderr[-200:]}'))
+
+    elif sid == 'install_mineru':
+        py = info.get('mineru_python') or 'python'
+        print(T(lang, '  安装 MinerU + hf_xet...', '  Installing MinerU + hf_xet...'))
+        for pkg in ['magic-pdf', 'hf-xet']:
+            r = subprocess.run([py, '-m', 'pip', 'install', pkg], capture_output=True, text=True, timeout=300)
+            print(f'  {pkg}: {"✅" if r.returncode==0 else "❌"}')
+
+    elif sid == 'download_pipeline':
+        py = info.get('mineru_python') or 'python'
+        print(T(lang, '  下载 Pipeline 模型...', '  Downloading Pipeline model...'))
+        r = subprocess.run([py, '-m', 'mineru', 'download', '--model', 'pipeline'],
+                          capture_output=True, text=True, timeout=600)
+        print(cc('G', T(lang, '  ✅ 完成', '  ✅ Done')) if r.returncode==0 else cc('R', '  ❌'))
+
+    elif sid == 'download_vlm':
+        py = info.get('mineru_python') or 'python'
+        print(T(lang, '  下载 VLM 模型...', '  Downloading VLM model...'))
+        r = subprocess.run([py, '-m', 'mineru', 'download', '--model', 'vlm'],
+                          capture_output=True, text=True, timeout=600)
+        print(cc('G', T(lang, '  ✅ 完成', '  ✅ Done')) if r.returncode==0 else cc('R', '  ❌'))
+
+    elif sid == 'install_zotero':
+        print(T(lang, '  打开 Zotero 下载页...', '  Opening Zotero download...'))
+        webbrowser.open('https://www.zotero.org/download/')
+
+    elif sid == 'install_bbt':
+        print(T(lang, '  打开 Zotero 中文插件商店...', '  Opening Zotero CN plugin store...'))
+        webbrowser.open('https://zotero-chinese.com/')
+
+    elif sid == 'enable_cuda':
+        cfg = Path.home() / 'mineru.json'
+        data = {}
+        if cfg.exists():
+            data = json.loads(cfg.read_text(encoding='utf-8'))
+        data['device-mode'] = 'cuda'
+        cfg.write_text(json.dumps(data, indent=2), encoding='utf-8')
+        print(cc('G', T(lang, '  ✅ CUDA 已启用', '  ✅ CUDA enabled')))
+
+    elif sid == 'set_api_key':
+        key = input(cc('Y', T(lang, '  输入 MinerU API Key: ', '  Enter MinerU API Key: '))).strip()
+        if key:
+            cfg = {}
+            if CONFIG_PATH.exists():
+                cfg = json.loads(CONFIG_PATH.read_text(encoding='utf-8'))
+            cfg['api_key'] = key
+            CONFIG_PATH.write_text(json.dumps(cfg, indent=2), encoding='utf-8')
+            print(cc('G', T(lang, '  ✅ 已保存', '  ✅ Saved')))
+
+    input(cc('D', T(lang, '\n  按回车继续...', '\n  Press Enter to continue...')))
+
+# ═══════════ 解析后端选择 ═══════════
+def choose_backend(info, lang):
+    print(cc('BOLD', T(lang, '\n🔧 选择解析方式', '\n🔧 Select Parse Mode')))
+    opts = []
+
+    opts.append(('1', 'pipeline', 'local', T(lang, 'Pipeline (快速, CPU/GPU适用)', 'Pipeline (Fast, CPU/GPU)')))
+    opts.append(('2', 'pipeline', 'cloud', T(lang, '🌐 MinerU Cloud API (在线, Pipeline)', '🌐 MinerU Cloud API (Online, Pipeline)')))
+
+    if info['has_nvidia'] and info['torch_ok'] and info['model_vlm']:
+        opts.append(('3', 'vlm-auto-engine', 'local', T(lang, 'VLM (精准, 需 NVIDIA 8GB+)', 'VLM (Precise, NVIDIA 8GB+)')))
+        opts.append(('4', 'hybrid-auto-engine', 'local', T(lang, 'Hybrid (Pipeline + VLM)', 'Hybrid (Pipeline + VLM)')))
+    if info['has_nvidia'] or _check_api_key():
+        opts.append(('5', 'vlm-auto-engine', 'cloud', T(lang, '🌐 MinerU Cloud API (在线, VLM)', '🌐 MinerU Cloud API (Online, VLM)')))
+
+    for n, _, _, desc in opts:
+        print(f'  [{n}] {desc}')
+
+    while True:
+        c = input(cc('Y', T(lang, '  选择: ', '  Select: '))).strip()
+        for n, be, mo, _ in opts:
+            if c == n:
+                return be, mo
+        print(cc('R', T(lang, '  无效选择', '  Invalid')))
+
+# ═══════════ 输入/输出/范围 ═══════════
+def parse_range(s, max_n):
+    if not s.strip(): return list(range(max_n))
+    indices = set()
+    for part in s.split(','):
+        part = part.strip()
+        if '-' in part:
+            a, _, b = part.partition('-')
+            try:
+                start = max(1, int(a.strip() or '1'))
+                end = min(max_n, int(b.strip() or str(max_n)))
+                for i in range(start, end+1): indices.add(i-1)
+            except ValueError: pass
+        else:
+            try:
+                i = int(part.strip())
+                if 1 <= i <= max_n: indices.add(i-1)
+            except ValueError: pass
+    return sorted(indices)
+
+def select_range(pdfs, lang):
+    total = len(pdfs)
+    print(cc('BOLD', T(lang, f'\n📋 {total} PDFs found / 共 {total} 篇', f'\n📋 {total} PDFs found')))
+    print(cc('D', T(lang,
+        '  示例: 11-108         → 解析第11到108篇',
+        '  Example: 11-108      → papers 11 through 108')))
+    print(cc('D', T(lang,
+        '  示例: 1,3,5-10,15   → 解析第1,3,5-10,15篇',
+        '  Example: 1,3,5-10,15 → papers 1, 3, 5-10, 15')))
+    print(cc('D', T(lang,
+        '  回车/Enter = 全部',
+        '  Enter = all')))
+    s = input(cc('Y', '  范围: ')).strip()
+    indices = parse_range(s, total)
+    selected = [pdfs[i] for i in indices]
+    if indices:
+        print(cc('G', f'  {len(selected)}/{total} selected [{indices[0]+1}-{indices[-1]+1}]'))
+    return selected
+
+def extract_pdfs_from_json(json_path):
+    with open(json_path, 'r', encoding='utf-8') as f:
+        data = json.load(f)
+    pdfs = []
+    for item in data.get('items', []):
+        ck = item.get('citationKey', '') or item.get('itemKey', '')
+        title = (item.get('title', '') or '')[:60]
+        for att in item.get('attachments', []):
+            path = att.get('path', '')
+            if path and os.path.exists(path) and path.lower().endswith('.pdf'):
+                pdfs.append({'path': path, 'citekey': ck, 'title': title}); break
+    return pdfs
+
+def extract_pdfs_from_folder(folder):
+    return [{'path': os.path.join(folder,f), 'citekey': f.replace('.pdf',''), 'title': f}
+            for f in sorted(os.listdir(folder)) if f.lower().endswith('.pdf')]
+
+# ═══════════ 解析 ═══════════
+def run_local_parse(pdfs, backend, output_dir, lang):
+    total = len(pdfs)
     t0 = time.time()
     batch_dir = Path(output_dir) / f'_batch_{datetime.now().strftime("%Y%m%d_%H%M%S")}'
     batch_dir.mkdir(parents=True, exist_ok=True)
