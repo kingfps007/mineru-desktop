@@ -1,4 +1,4 @@
-# MinerU CLI v4.0.2
+# MinerU CLI v4.1.0
 
 Windows 命令行 PDF 批量解析工具，为学术文献综述工作流设计。从 Zotero 文献库一键批量提取 Markdown + 图片 + 公式。
 
@@ -28,7 +28,7 @@ Zotero 文献库 → BBT 导出 JSON（含 PDF 路径）→ MinerU CLI
 | 📊 系统仪表盘 | CPU/RAM/GPU/环境/模型/CUDA 状态实时检测 |
 | 🔧 安装向导 | 10 步自动化（Miniconda→Python环境→PyTorch→MinerU→模型→Zotero→CUDA），按完成状态显隐，硬件不兼容自动跳过 |
 | 🚀 批量解析 | Pipeline/VLM/Hybrid 本地后端 + 云端 API |
-| 📋 灵活输入 | Zotero BBT JSON（自动从附件提取 PDF 路径）/ 文件夹 |
+| 📋 灵活输入 | Zotero BBT JSON / BibTeX (.bib) / 文件夹 |
 | 🎯 范围选择 | 支持 `11-108`、`1,3,5-10` 等打印机风格 |
 | 🌐 中英双语 | 全界面实时切换 |
 | ⚡ 智能分批 | RAM 自适应 BATCH（3-10 篇/批），失败自动重试 1 次 |
@@ -71,6 +71,7 @@ pyinstaller --onefile --name MinerU_CLI --distpath . scripts/mineru_cli.py
 
 ## 版本
 
+**v4.1.0** (2026-06-12) — 新增 BibTeX (.bib) 输入支持，以后只需从 Zotero 导出 .bib 即可导入解析
 **v4.0.2** (2026-06-11) — 修复稳定性：恢复conda env传递+RAM自适应BATCH+线程超时+重试+Ctrl+C清理；代码精简40%
 **v4.0.1** (2026-06-11) — 自动RAM调BATCH；.bat启动替代PyInstaller
 **v4.0.0** (2026-06-11) — CLI 替代 Electron；全功能安装向导；中英双语；单次模型加载；清理历史遗留。

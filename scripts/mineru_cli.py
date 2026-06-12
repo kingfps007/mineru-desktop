@@ -17,8 +17,8 @@ CONFIG_PATH = Path.home() / "mineru_desktop_config.json"
 # ═══════════ 语言选择 ═══════════
 def choose_language():
     print(cc('BOLD', cc('B', '\n═══════════════════════════════════')))
-    print(cc('BOLD', cc('B', '  MinerU CLI v4.0.2 — PDF Batch Parser')))
-    print(cc('BOLD', cc('B', '  MinerU CLI v4.0.2 — PDF 批量解析工具')))
+    print(cc('BOLD', cc('B', '  MinerU CLI v4.1.0 — PDF Batch Parser')))
+    print(cc('BOLD', cc('B', '  MinerU CLI v4.1.0 — PDF 批量解析工具')))
     print(cc('BOLD', cc('B', '═══════════════════════════════════')))
     print('\n  [1] 中文 (Chinese)')
     print('  [2] English')
@@ -369,6 +369,37 @@ def extract_pdfs_from_json(json_path):
                 pdfs.append({'path': path, 'citekey': ck, 'title': title}); break
     return pdfs
 
+def extract_pdfs_from_bib(bib_path):
+    """从 Zotero Better BibTeX 导出的 .bib 文件中提取 PDF 路径"""
+    with open(bib_path, 'r', encoding='utf-8') as f:
+        content = f.read()
+    pdfs = []
+    # 按 @article{...} / @incollection{...} 等分割条目
+    entries = re.split(r'\n(?=@\w+\{)', content)
+    for entry in entries:
+        ck_match = re.match(r'@\w+\{(\w+),', entry)
+        if not ck_match:
+            continue
+        ck = ck_match.group(1)
+        # 提取 title（仅用于显示）
+        title_match = re.search(r'title\s*=\s*\{([^}]+)\}', entry)
+        title = (title_match.group(1) or '')[:60] if title_match else ''
+        # 提取 file 字段中的 PDF 路径
+        file_match = re.search(r'file\s*=\s*\{([^}]+)\}', entry)
+        if not file_match:
+            continue
+        file_field = file_match.group(1)
+        # 处理 BibTeX 转义: \\ → \, \: → :
+        file_field = file_field.replace('\\\\', '\\').replace('\\:', ':')
+        # 分号分隔多个附件（Zotero BBT 格式）
+        parts = file_field.split(';')
+        for part in parts:
+            part = part.strip()
+            if part.lower().endswith('.pdf') and os.path.exists(part):
+                pdfs.append({'path': part, 'citekey': ck, 'title': title})
+                break  # 每篇只取第一个存在的 PDF
+    return pdfs
+
 def extract_pdfs_from_folder(folder):
     return [{'path': os.path.join(folder,f), 'citekey': f.replace('.pdf',''), 'title': f}
             for f in sorted(os.listdir(folder)) if f.lower().endswith('.pdf')]
@@ -530,11 +561,15 @@ def main():
     # 7. 输入
     print(cc('BOLD', T(ui_lang, '\n📂 输入', '\n📂 Input')))
     print(T(ui_lang, '  [1] Zotero BBT JSON', '  [1] Zotero BBT JSON'))
-    print(T(ui_lang, '  [2] PDF 文件夹', '  [2] PDF folder'))
+    print(T(ui_lang, '  [2] Zotero BibTeX (.bib)', '  [2] Zotero BibTeX (.bib)'))
+    print(T(ui_lang, '  [3] PDF 文件夹', '  [3] PDF folder'))
     c = input(cc('Y', '  > ')).strip()
-    if c == '2':
+    if c == '3':
         folder = input(cc('Y', T(ui_lang, '  文件夹路径: ', '  Folder path: '))).strip().strip('"')
         pdfs = extract_pdfs_from_folder(folder)
+    elif c == '2':
+        bpath = input(cc('Y', T(ui_lang, '  BibTeX路径: ', '  BibTeX path: '))).strip().strip('"')
+        pdfs = extract_pdfs_from_bib(bpath)
     else:
         jpath = input(cc('Y', T(ui_lang, '  JSON路径: ', '  JSON path: '))).strip().strip('"')
         pdfs = extract_pdfs_from_json(jpath)

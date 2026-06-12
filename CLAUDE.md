@@ -1,6 +1,6 @@
 # CLAUDE.md
 
-MinerU CLI v4.0.2 — Windows 命令行 PDF 批量解析工具，替代 Electron GUI。
+MinerU CLI v4.1.0 — Windows 命令行 PDF 批量解析工具，替代 Electron GUI。
 
 ## 项目定位
 
@@ -27,6 +27,7 @@ MinerU CLI v4.0.2 — Windows 命令行 PDF 批量解析工具，替代 Electron
 
 | 版本 | 日期 | 变更 |
 |:---|:---|:---|
+| 4.1.0 | 2026-06-12 | 新增 BibTeX (.bib) 输入支持，保留JSON兼容；输入菜单调整（[1]JSON [2].bib [3]文件夹） |
 | 4.0.2 | 2026-06-11 | 修复稳定性：恢复conda env传递+RAM自适应BATCH+线程超时+重试+Ctrl+C清理；删除三份重复代码(968→580行) |
 | 4.0.1 | 2026-06-11 | 放弃PyInstaller(.bat启动)；自动根据RAM调BATCH；修复MemoryError |
 | 4.0.0 | 2026-06-11 | CLI替代Electron；全功能安装向导；中英双语；批量处理 |
@@ -44,6 +45,26 @@ scripts/
 ├── mineru_html_parser.py ← HTML→MD
 └── _remap_citations.py   ← 引用重映射
 ```
+
+## 版本发布规则
+
+**每次代码改动必须：**
+1. 更新版本号（CLAUDE.md、README.md、CLI横幅一致）
+2. 重新构建 EXE：
+   ```bash
+   conda activate MinerU
+   pyinstaller --onefile --name MinerU_CLI --distpath . scripts/mineru_cli.py
+   ```
+3. 确认 `MinerU_CLI.exe` 生成成功（~7MB）
+4. 创建 GitHub Release：
+   ```bash
+   git add scripts/mineru_cli.py README.md CLAUDE.md MinerU_CLI.exe
+   git commit -m "vX.Y.Z: 变更摘要"
+   git tag vX.Y.Z
+   git push && git push origin vX.Y.Z
+   gh release create vX.Y.Z MinerU_CLI.exe --title "MinerU CLI vX.Y.Z" --notes "变更说明"
+   ```
+5. push 前检查 `.env`、token、API key 未被误提交
 
 ## 关键约束
 
