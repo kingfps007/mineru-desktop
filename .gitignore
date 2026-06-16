@@ -9,6 +9,7 @@ venv/
 *.json
 
 # Build artifacts
+build/
 dist/
 dist_*/
 _restore_*/
