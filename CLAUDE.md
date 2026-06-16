@@ -19,7 +19,7 @@ MinerU CLI v4.1.0 — Windows 命令行 PDF 批量解析工具，替代 Electron
 1. 仪表盘：检测 CPU/RAM/GPU/MinerU环境/PyTorch/模型/CUDA
 2. 安装向导：10步（0-10），按完成状态自动显隐，硬件不兼容自动跳过
 3. 解析：本地 Pipeline/VLM/Hybrid 或云端 API
-4. 输入：Zotero BBT JSON 或 PDF 文件夹
+4. 输入：Zotero BBT JSON（推荐，同时含PDF路径+Zotero URI）/ BibTeX (.bib) / PDF 文件夹
 5. 范围选择：支持 11-108、1,3,5-10 等打印机风格
 6. 批量处理：RAM 自适应 BATCH（3-10篇/批），每批独立调用 mineru；失败自动重试1次
 
